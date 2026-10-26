@@ -31,6 +31,8 @@ export interface Session {
 export interface CheckEvidence {
   readonly errors: number;
   readonly tests: 'passed' | 'failed' | 'not-run';
+  /** Files saved since the current checkpoint started. Zero means no work to check. */
+  readonly changedFiles: number;
 }
 
 export type SessionEvent =
@@ -190,7 +192,7 @@ function independentCheck(session: Session, event: PhaseEvent): TransitionResult
 }
 
 function isPassing(evidence: CheckEvidence): boolean {
-  return evidence.errors === 0 && evidence.tests !== 'failed';
+  return evidence.changedFiles > 0 && evidence.errors === 0 && evidence.tests !== 'failed';
 }
 
 function updateCheckpoint(session: Session, index: number, changes: Partial<Checkpoint>): Session {

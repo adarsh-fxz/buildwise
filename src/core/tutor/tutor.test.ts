@@ -3,8 +3,8 @@ import type { Mentor } from '../mentor/mentor';
 import { activeCheckpoint, type CheckEvidence } from '../session/session';
 import { describeEvidence, Tutor } from './tutor';
 
-const PASSING: CheckEvidence = { errors: 0, tests: 'not-run' };
-const FAILING: CheckEvidence = { errors: 2, tests: 'not-run' };
+const PASSING: CheckEvidence = { errors: 0, tests: 'not-run', changedFiles: 1 };
+const FAILING: CheckEvidence = { errors: 2, tests: 'not-run', changedFiles: 1 };
 
 function fakeMentor(overrides: Partial<Mentor> = {}): Mentor {
   return {
@@ -153,7 +153,10 @@ describe('Tutor', () => {
 
 describe('describeEvidence', () => {
   it('reads naturally', () => {
-    expect(describeEvidence({ errors: 1, tests: 'not-run' })).toBe('1 error');
-    expect(describeEvidence({ errors: 0, tests: 'failed' })).toBe('0 errors, tests failed');
+    expect(describeEvidence({ errors: 1, tests: 'not-run', changedFiles: 2 })).toBe('1 error');
+    expect(describeEvidence({ errors: 0, tests: 'failed', changedFiles: 1 })).toBe('0 errors, tests failed');
+    expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 0 })).toBe(
+      'no files saved since this checkpoint started',
+    );
   });
 });

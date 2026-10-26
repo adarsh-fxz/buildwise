@@ -203,7 +203,8 @@ export class Tutor {
   }
 }
 
-export function describeEvidence({ errors, tests }: CheckEvidence): string {
+export function describeEvidence({ errors, tests, changedFiles }: CheckEvidence): string {
+  if (changedFiles === 0) return 'no files saved since this checkpoint started';
   const parts = [`${String(errors)} ${errors === 1 ? 'error' : 'errors'}`];
   if (tests !== 'not-run') parts.push(`tests ${tests}`);
   return parts.join(', ');
