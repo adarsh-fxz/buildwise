@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { instrument, seconds } from '../core/mentor/instrument';
 import { activeCheckpoint, HINT_LEVELS, type Session } from '../core/session/session';
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
@@ -28,6 +29,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     private readonly extensionUri: vscode.Uri,
     private readonly secrets: vscode.SecretStorage,
     private readonly workspaceState: vscode.Memento,
+    private readonly output: vscode.OutputChannel,
   ) {}
 
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -117,11 +119,17 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
 
     this.starting = true;
     try {
-      const mentor = await loadMentor(this.secrets);
-      if (!mentor) return;
+      const loaded = await loadMentor(this.secrets);
+      if (!loaded) return;
+      const mentor = instrument(loaded, (line) => {
+        this.log(line);
+      });
+      this.log(`Session started with ${this.model ?? 'the configured model'}.`);
       this.active?.changes.dispose();
       const changes = new ChangeTracker(folder);
+      const scanStarted = Date.now();
       const scan = await scanFolder(folder);
+      this.log(`Scanned ${String(scan.files.length)} files in ${seconds(Date.now() - scanStarted)}.`);
       const tutor = new Tutor(mentor, repositoryContext(scan, this.editors), (state) => {
         this.post(state);
       });
@@ -136,9 +144,18 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     if (!this.active) return;
     const { tutor, folder, changes } = this.active;
     const before = position(tutor.state.session);
-    await tutor.check(() => runChecks(folder, changes, this.workspaceState));
+    await tutor.check(async () => {
+      const started = Date.now();
+      const report = await runChecks(folder, changes, this.workspaceState);
+      this.log(`check: ${report.scope}, ${String(report.evidence.errors)} errors, tests ${report.evidence.tests}, in ${seconds(Date.now() - started)}`);
+      return report;
+    });
     // Work for the next checkpoint starts from a clean slate.
     if (position(tutor.state.session) !== before) changes.reset();
+  }
+
+  private log(line: string): void {
+    this.output.appendLine(`[${new Date().toLocaleTimeString()}] ${line}`);
   }
 
   private post(state: TutorState | undefined): void {

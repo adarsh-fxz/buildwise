@@ -9,6 +9,10 @@ const root = document.getElementById('root') as HTMLElement;
 const drafts = { goal: '', question: '' };
 let renderedEntries = 0;
 
+// Counts the seconds of the current wait so slow can be told apart from stuck.
+const SLOW_AFTER_S = 20;
+let waiting: { readonly activity: keyof typeof ACTIVITY_TEXT; readonly since: number; readonly timer: number } | undefined;
+
 window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
   render(event.data.state);
 });
@@ -19,6 +23,7 @@ const send = (message: FromWebview) => () => {
 };
 
 function render(state: ViewState): void {
+  trackWait(state);
   const focused = document.activeElement?.id;
   root.replaceChildren(...(state.phase === 'idle' ? idleView(state) : sessionView(state)));
   if (focused) document.getElementById(focused)?.focus();
@@ -30,7 +35,31 @@ function render(state: ViewState): void {
   renderedEntries = state.transcript.length;
 }
 
-const ACTIVITY_TEXT = { thinking: 'Thinking…', checking: 'Running your checks…' } as const;
+const ACTIVITY_TEXT = { thinking: 'Thinking', checking: 'Running your checks' } as const;
+
+function trackWait(state: ViewState): void {
+  if (state.activity === waiting?.activity) return;
+  if (waiting) clearInterval(waiting.timer);
+  waiting = state.activity
+    ? { activity: state.activity, since: Date.now(), timer: window.setInterval(updateStatus, 1000) }
+    : undefined;
+}
+
+function statusText(): string {
+  if (!waiting) return '';
+  const elapsed = Math.floor((Date.now() - waiting.since) / 1000);
+  const slow = elapsed >= SLOW_AFTER_S ? ' This is taking a while; details are in Output → BuildWise.' : '';
+  return `${ACTIVITY_TEXT[waiting.activity]}… ${String(elapsed)}s.${slow}`;
+}
+
+function updateStatus(): void {
+  const status = document.getElementById('status');
+  if (status) status.textContent = statusText();
+}
+
+function statusLine(): HTMLElement[] {
+  return waiting ? [el('p', { id: 'status', className: 'status', text: statusText() })] : [];
+}
 
 function idleView(state: ViewState): Node[] {
   if (state.model === undefined || state.needsFolder) return gettingStarted(state);
@@ -53,6 +82,7 @@ function idleView(state: ViewState): Node[] {
       el('p', { text: 'Describe a feature in this project. BuildWise plans it with you, and you write the code.' }),
       goal,
       button(state.activity ? 'Planning…' : 'Start session', start, { primary: true, disabled: busy(state) }),
+      ...statusLine(),
       el('p', { className: 'note' }, [
         document.createTextNode(`Using ${state.model}. `),
         button('Change', send({ type: 'setup' }), { link: true }),
@@ -93,7 +123,7 @@ function gettingStarted(state: ViewState): Node[] {
 
 function sessionView(state: ViewState): Node[] {
   const nodes: Node[] = [checkpointList(state), transcriptView(state)];
-  if (state.activity) nodes.push(el('p', { className: 'status', text: ACTIVITY_TEXT[state.activity] }));
+  nodes.push(...statusLine());
   nodes.push(state.phase === 'complete' ? completeActions() : sessionActions(state));
   return nodes;
 }

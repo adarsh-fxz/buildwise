@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext): void {
   statusItem.command = 'buildwise.openMentor';
   statusItem.show();
 
-  const mentorView = new MentorViewProvider(context.extensionUri, context.secrets, context.workspaceState);
+  const mentorView = new MentorViewProvider(context.extensionUri, context.secrets, context.workspaceState, output);
   context.subscriptions.push(
     output,
     statusItem,
