@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { resetCheckPermissions } from './checks';
+import { LearningLog } from './learningLog';
 import { MentorViewProvider } from './mentorView';
 import { removeApiKeys, setupProvider, testConnection } from './provider';
 import { showSharedContext } from './sharedContext';
@@ -17,7 +18,8 @@ export function activate(context: vscode.ExtensionContext): void {
   statusItem.command = 'buildwise.openMentor';
   statusItem.show();
 
-  const mentorView = new MentorViewProvider(context.extensionUri, context.secrets, context.workspaceState, output);
+  const learningLog = new LearningLog(context.globalState);
+  const mentorView = new MentorViewProvider(context.extensionUri, context.secrets, context.workspaceState, output, learningLog);
   context.subscriptions.push(
     output,
     statusItem,
@@ -34,6 +36,9 @@ export function activate(context: vscode.ExtensionContext): void {
       });
     }),
     vscode.commands.registerCommand('buildwise.resetCheckPermissions', () => resetCheckPermissions(context.workspaceState)),
+    vscode.commands.registerCommand('buildwise.clearLearningLog', async () => {
+      if (await learningLog.clear()) mentorView.refresh();
+    }),
   );
 
   if (!context.globalState.get<boolean>(WELCOMED_KEY)) {

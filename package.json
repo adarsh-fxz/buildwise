@@ -81,6 +81,11 @@
         "command": "buildwise.resetCheckPermissions",
         "title": "Ask Again Before Running Checks",
         "category": "BuildWise"
+      },
+      {
+        "command": "buildwise.clearLearningLog",
+        "title": "Clear Learning Log",
+        "category": "BuildWise"
       }
     ],
     "configuration": {

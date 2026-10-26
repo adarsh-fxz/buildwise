@@ -1,5 +1,6 @@
 // Messages between the extension and the mentor webview. Type-only, so the
 // webview bundle doesn't pull in core code.
+import type { Progress } from '../core/progress/log';
 import type { Checkpoint, Phase } from '../core/session/session';
 import type { Activity, TranscriptEntry } from '../core/tutor/tutor';
 
@@ -17,6 +18,8 @@ export interface ViewState {
   /** The model in use, such as "gemini-3.8-flash from Google Gemini"; undefined until set up. */
   readonly model: string | undefined;
   readonly needsFolder: boolean;
+  /** From the learning log; undefined until a session has been recorded. */
+  readonly progress: Progress | undefined;
 }
 
 export type ToWebview = { readonly type: 'state'; readonly state: ViewState };

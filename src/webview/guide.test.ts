@@ -14,6 +14,7 @@ const base: ViewState = {
   transcript: [],
   model: 'm',
   needsFolder: false,
+  progress: undefined,
 };
 
 describe('nextStep', () => {

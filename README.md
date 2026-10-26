@@ -85,6 +85,8 @@ Free tiers change often and have daily limits. Smaller models give weaker hints 
 
 Nothing is sent anywhere until you start a session. During a session, BuildWise sends the model provider you chose your goal and questions, the paths of shareable files (up to 300), the contents of the file open in your editor if that file is shareable, and, when you ask for an explanation, the errors and the end of the test output. Your API key is stored in the OS keychain through VS Code's secret storage.
 
+BuildWise keeps a learning log of finished sessions on your machine (the goal, steps passed, hints and questions used, and how long it took) to show your progress on the start screen. It is never uploaded. **BuildWise: Clear Learning Log** deletes it.
+
 BuildWise only ever considers files in the open workspace, and filters them before anything can reach a model provider. It never shares:
 
 - `.env` files (templates such as `.env.example` are allowed)
@@ -105,7 +107,7 @@ BuildWise is read-only: it never edits your files. It runs only the check comman
 - [x] **Tutoring policy:** checkpoint state machine, hint ladder, locked reveals, session summary
 - [x] **Mentor loop:** Claude-backed planner and hints, chat panel
 - [x] **Feedback:** run the type checker and tests with consent, list errors, explain them without the fix
-- [ ] **Independent check:** unassisted task, session recap, local learning log
+- [x] **Independent check:** unassisted task, session recap, local learning log
 - [ ] **Pilot metrics (opt-in):** hints per checkpoint, checkpoint completion, return sessions
 - [ ] **Pilot:** 20 developers on their own repositories, compared with Claude Code's Learning mode
 - [ ] **Later:** voice, more languages, an instructor view for courses and bootcamps

@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import { instrument, seconds } from '../core/mentor/instrument';
-import { activeCheckpoint, HINT_LEVELS } from '../core/session/session';
+import { isWorthRecording, summarizeProgress } from '../core/progress/log';
+import { activeCheckpoint, HINT_LEVELS, summarize } from '../core/session/session';
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
 import { describeConfigured, loadMentor, setupProvider } from './provider';
 import { runChecks } from './checks';
+import type { LearningLog } from './learningLog';
 import { ChangeTracker, EditorTracker, readSavedFiles, repositoryContext } from './editorContext';
 import { type FolderScan, scanFolder } from './workspaceFiles';
 import { isWorkspaceRelative } from '../webview/fileRef';
@@ -14,6 +16,8 @@ interface ActiveSession {
   readonly folder: vscode.WorkspaceFolder;
   readonly scan: FolderScan;
   readonly changes: ChangeTracker;
+  readonly startedAt: number;
+  recorded: boolean;
 }
 
 export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -32,7 +36,13 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     private readonly secrets: vscode.SecretStorage,
     private readonly workspaceState: vscode.Memento,
     private readonly output: vscode.OutputChannel,
+    private readonly learningLog: LearningLog,
   ) {}
+
+  /** Re-renders, for when something outside the panel changed, such as the learning log. */
+  refresh(): void {
+    this.post(this.latest);
+  }
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
@@ -138,10 +148,13 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
       const scanStarted = Date.now();
       const scan = await scanFolder(folder);
       this.log(`Scanned ${String(scan.files.length)} files in ${seconds(Date.now() - scanStarted)}.`);
-      const tutor = new Tutor(mentor, repositoryContext(scan, this.editors), (state) => {
-        this.post(state);
+      const tutor: Tutor = new Tutor(mentor, repositoryContext(scan, this.editors), (state) => {
+        // Post the tutor's current state, not this one: recording may finish after newer changes.
+        void this.recordIfFinished(state).finally(() => {
+          this.post(tutor.state);
+        });
       });
-      this.active = { tutor, folder, scan, changes };
+      this.active = { tutor, folder, scan, changes, startedAt: Date.now(), recorded: false };
       await tutor.start(goal);
     } finally {
       this.starting = false;
@@ -158,6 +171,23 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
       this.log(`check: ${report.scope}, ${String(report.evidence.errors)} errors, tests ${report.evidence.tests}, in ${seconds(Date.now() - started)}`);
       return report;
     });
+  }
+
+  /** Adds a finished session to the learning log, once. */
+  private async recordIfFinished(state: TutorState): Promise<void> {
+    const active = this.active;
+    const session = state.session;
+    if (!active || active.recorded || session?.phase !== 'complete') return;
+    active.recorded = true;
+    const summary = summarize(session);
+    if (!isWorthRecording(summary)) return;
+    await this.learningLog.record({
+      ...summary,
+      finishedAt: new Date().toISOString(),
+      goal: session.goal,
+      durationMinutes: Math.max(1, Math.round((Date.now() - active.startedAt) / 60_000)),
+    });
+    this.log(`Recorded the session in your learning log.`);
   }
 
   /** Opens a file the mentor or a check mentioned. The path comes from model output, so it is checked first. */
@@ -178,6 +208,11 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     });
   }
 
+  private progress() {
+    const entries = this.learningLog.entries();
+    return entries.length ? summarizeProgress(entries) : undefined;
+  }
+
   private log(line: string): void {
     this.output.appendLine(`[${new Date().toLocaleTimeString()}] ${line}`);
   }
@@ -186,7 +221,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     this.latest = state;
     const message: ToWebview = {
       type: 'state',
-      state: toViewState(state, this.model, !vscode.workspace.workspaceFolders?.length),
+      state: toViewState(state, this.model, !vscode.workspace.workspaceFolders?.length, this.progress()),
     };
     void this.view?.webview.postMessage(message);
   }
@@ -211,7 +246,12 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
   }
 }
 
-function toViewState(state: TutorState | undefined, model: string | undefined, needsFolder: boolean): ViewState {
+function toViewState(
+  state: TutorState | undefined,
+  model: string | undefined,
+  needsFolder: boolean,
+  progress: ViewState['progress'],
+): ViewState {
   const session = state?.session;
   const current = session && activeCheckpoint(session);
   return {
@@ -225,6 +265,7 @@ function toViewState(state: TutorState | undefined, model: string | undefined, n
     transcript: state?.transcript ?? [],
     model,
     needsFolder,
+    progress,
   };
 }
 

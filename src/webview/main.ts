@@ -131,12 +131,82 @@ function idleView(state: ViewState): Node[] {
       ...statusLine(),
     ]),
     el('section', { className: 'stack examples' }, [el('div', { className: 'section-label', text: 'Not sure? Try one' }), ...examples]),
+    ...(state.progress ? [progressView(state.progress)] : []),
     el('p', { className: 'muted small model-line' }, [
       document.createTextNode(`Using ${state.model}. `),
       button('Change', send({ type: 'setup' }), { style: 'link' }),
     ]),
     ...(state.transcript.length ? [transcriptView(state)] : []),
   ];
+}
+
+type Progress = NonNullable<ViewState['progress']>;
+
+/** What the learning log shows: how much the learner now does without help. */
+function progressView(progress: Progress): HTMLElement {
+  const tile = (value: string, label: string) =>
+    el('div', { className: 'tile' }, [el('div', { className: 'tile-value', text: value }), el('div', { className: 'tile-label', text: label })]);
+
+  const children: Node[] = [
+    el('div', { className: 'section-label', text: 'Your progress' }),
+    el('div', { className: 'tiles' }, [
+      tile(String(progress.sessions), progress.sessions === 1 ? 'session' : 'sessions'),
+      tile(`${String(progress.unassistedPercent)}%`, 'steps without help'),
+      tile(String(progress.independentChecksPassed), 'independent checks'),
+    ]),
+  ];
+
+  if (progress.trend) {
+    const { earlierPercent, recentPercent } = progress.trend;
+    const up = recentPercent > earlierPercent;
+    const text = up
+      ? `Steps without help rose from ${String(earlierPercent)}% to ${String(recentPercent)}% in your recent sessions.`
+      : `Steps without help: ${String(earlierPercent)}% earlier, ${String(recentPercent)}% recently. Harder goals often dip before they climb.`;
+    children.push(el('div', { className: `notice${up ? ' success' : ''}` }, [icon(up ? 'check' : 'info', 'notice-icon'), el('p', { text })]));
+  }
+
+  children.push(
+    el(
+      'ul',
+      { className: 'history' },
+      progress.recent.map((entry) => {
+        const meter = el('div', { className: 'meter', ariaHidden: true }, [
+          segment('meter-unassisted', entry.checkpointsUnassisted, entry.checkpointsTotal),
+          segment('meter-assisted', entry.checkpointsPassed - entry.checkpointsUnassisted, entry.checkpointsTotal),
+        ]);
+        return el('li', { className: 'history-item' }, [
+          el('div', { className: 'row spread' }, [
+            el('span', { className: 'history-goal', text: entry.goal, title: entry.goal }),
+            el('span', { className: 'muted small', text: relativeDay(entry.finishedAt) }),
+          ]),
+          meter,
+          el('span', {
+            className: 'muted small',
+            text: `${String(entry.checkpointsUnassisted)} of ${String(entry.checkpointsTotal)} steps without help${entry.independentCheckPassed ? ', independent check passed' : ''}`,
+          }),
+        ]);
+      }),
+    ),
+  );
+  return el('section', { className: 'stack progress-section' }, children);
+}
+
+function segment(className: string, count: number, total: number): HTMLElement {
+  const part = el('span', { className });
+  part.style.setProperty('width', `${String(total ? (count / total) * 100 : 0)}%`);
+  return part;
+}
+
+function relativeDay(iso: string): string {
+  const then = new Date(iso);
+  const days = Math.round((startOfDay(new Date()) - startOfDay(then)) / 86_400_000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function startOfDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 /** The steps before a first session: a model, then a project folder. */
