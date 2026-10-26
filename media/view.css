@@ -1,0 +1,193 @@
+body {
+  padding: 0 12px 12px;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.5;
+}
+
+h2 {
+  margin: 16px 0 4px;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 8px;
+}
+
+.body p {
+  white-space: pre-wrap;
+}
+
+code {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  background: var(--vscode-textCodeBlock-background);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+pre {
+  margin: 0 0 8px;
+  padding: 8px;
+  overflow-x: auto;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 3px;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+}
+
+textarea,
+input[type='text'] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  font: inherit;
+  resize: vertical;
+}
+
+textarea:focus,
+input[type='text']:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+button {
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+button.secondary {
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+button.link {
+  padding: 0;
+  color: var(--vscode-textLink-foreground);
+  background: none;
+  border: none;
+}
+
+.intro textarea {
+  margin: 8px 0;
+}
+
+.checkpoints {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checkpoints li {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.checkpoints .marker {
+  width: 1em;
+  flex: none;
+  text-align: center;
+}
+
+.checkpoints li.pending {
+  color: var(--vscode-descriptionForeground);
+}
+
+.checkpoints li.passed .marker {
+  color: var(--vscode-testing-iconPassed);
+}
+
+.checkpoints li.active .title {
+  font-weight: 600;
+}
+
+.checkpoints .description {
+  color: var(--vscode-descriptionForeground);
+}
+
+.transcript {
+  border-top: 1px solid var(--vscode-panel-border);
+  padding-top: 8px;
+}
+
+.entry {
+  margin-bottom: 12px;
+}
+
+.entry .label {
+  margin-bottom: 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.entry.from-learner .body {
+  padding-left: 8px;
+  border-left: 2px solid var(--vscode-textLink-foreground);
+}
+
+.entry.from-buildwise:not(.labeled) .body {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.status,
+.note {
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Keeps the actions in reach however long the transcript gets. */
+footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 0 4px;
+  background: var(--vscode-sideBar-background);
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.ask {
+  align-self: stretch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

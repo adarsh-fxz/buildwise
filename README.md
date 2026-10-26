@@ -50,7 +50,20 @@ None of this is proven yet. The pilot compares BuildWise directly against Claude
 
 **Out:** voice (planned after the pilot; typed comes first), other languages and editors, autonomous multi-file edits, running commands without asking, team features.
 
+## Try it
+
+BuildWise only runs from source for now.
+
+1. Clone this repository, run `npm install`, open it in VS Code and press <kbd>F5</kbd>.
+2. In the window that opens, open a TypeScript project.
+3. Run **BuildWise: Set API Key** with an [Anthropic API key](https://console.anthropic.com). Usage is billed to your key. The default model is `claude-opus-5-5`; change it with the `buildwise.model` setting.
+4. Open BuildWise in the activity bar and describe what you want to build.
+
+Current limits: checks count the errors VS Code reports, which usually covers open files only, and don't run tests yet. The mentor sees your file list and the file you have open, not the whole repository.
+
 ## Privacy
+
+Nothing is sent anywhere until you start a session. During a session, BuildWise sends Anthropic your goal and questions, the paths of shareable files (up to 300), and the contents of the file open in your editor if that file is shareable. Your API key is stored in the OS keychain through VS Code's secret storage.
 
 BuildWise only ever considers files in the open workspace, and filters them before anything can reach a model provider. It never shares:
 
@@ -70,7 +83,7 @@ BuildWise is read-only: it doesn't edit files or run commands without asking. Te
 - [x] **Context filter:** decide which files may be shared, with a reason for each exclusion
 - [ ] **Code navigation:** find the files and symbols relevant to a goal
 - [x] **Tutoring policy:** checkpoint state machine, hint ladder, locked reveals, session summary
-- [ ] **Mentor loop:** Claude-backed planner and hints, chat panel
+- [x] **Mentor loop:** Claude-backed planner and hints, chat panel
 - [ ] **Feedback:** react to saves, diagnostics and test results
 - [ ] **Independent check:** unassisted task, session recap, local learning log
 - [ ] **Pilot metrics (opt-in):** hints per checkpoint, checkpoint completion, return sessions

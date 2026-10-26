@@ -21,6 +21,24 @@
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "buildwise",
+          "title": "BuildWise",
+          "icon": "media/buildwise.svg"
+        }
+      ]
+    },
+    "views": {
+      "buildwise": [
+        {
+          "type": "webview",
+          "id": "buildwise.mentor",
+          "name": "Mentor"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "buildwise.showSharedContext",
