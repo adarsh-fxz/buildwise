@@ -49,8 +49,8 @@ describe('Tutor', () => {
   it('plans the goal and shows the plan', async () => {
     const tutor = await startedTutor();
     expect(tutor.state.session?.phase).toBe('building');
-    expect(tutor.state.transcript[0]).toEqual({ from: 'learner', text: 'Add pagination', label: 'Goal' });
-    expect(tutor.state.transcript[1]).toMatchObject({ from: 'mentor', label: 'Plan' });
+    expect(tutor.state.transcript[0]).toEqual({ from: 'learner', kind: 'goal', text: 'Add pagination', label: 'Goal' });
+    expect(tutor.state.transcript[1]).toMatchObject({ from: 'mentor', kind: 'plan', label: 'Plan' });
     expect(tutor.state.transcript[1]?.text).toContain('1. Read the page param: From the URL.');
   });
 
@@ -59,7 +59,7 @@ describe('Tutor', () => {
     const tutor = await startedTutor(fakeMentor({ hint }));
     await tutor.hint();
     await tutor.hint();
-    expect(last(tutor)).toEqual({ from: 'mentor', text: 'hint 2', label: 'Hint 2 of 3' });
+    expect(last(tutor)).toEqual({ from: 'mentor', kind: 'hint', text: 'hint 2', label: 'Hint 2 of 3' });
     expect(hint).toHaveBeenLastCalledWith(expect.anything(), 2, ['hint 1'], expect.anything());
   });
 
@@ -68,7 +68,7 @@ describe('Tutor', () => {
     const tutor = await startedTutor(mentor);
     await tutor.hint();
     expect(current(tutor)?.hintsUsed).toBe(0);
-    expect(last(tutor)).toEqual({ from: 'buildwise', text: 'network down' });
+    expect(last(tutor)).toEqual({ from: 'buildwise', kind: 'notice', text: 'network down', tone: 'error' });
     expect(tutor.state.activity).toBeUndefined();
   });
 
@@ -84,8 +84,8 @@ describe('Tutor', () => {
     const tutor = await startedTutor();
     await tutor.ask('  What is an offset?  ');
     expect(tutor.state.transcript.slice(-2)).toEqual([
-      { from: 'learner', text: 'What is an offset?' },
-      { from: 'mentor', text: 'an answer' },
+      { from: 'learner', kind: 'question', text: 'What is an offset?' },
+      { from: 'mentor', kind: 'answer', text: 'an answer' },
     ]);
     expect(current(tutor)?.questionsAsked).toBe(1);
   });
@@ -93,7 +93,14 @@ describe('Tutor', () => {
   it('explains failing checks and does not advance', async () => {
     const tutor = await startedTutor();
     await tutor.check(collect(FAILING));
-    expect(last(tutor)).toEqual({ from: 'buildwise', text: 'Not passing yet: 2 errors, checked with tsc.', label: 'Check' });
+    expect(last(tutor)).toEqual({
+      from: 'buildwise',
+      kind: 'check',
+      text: 'Not passing yet: 2 errors, checked with tsc.',
+      label: 'Check',
+      tone: 'error',
+      problems: [],
+    });
     expect(current(tutor)?.title).toBe('Read the page param');
   });
 
@@ -101,18 +108,24 @@ describe('Tutor', () => {
     const tutor = await startedTutor();
     await tutor.hint();
     await tutor.check(collect(PASSING));
-    expect(last(tutor)?.text).toBe('Checkpoint 1 passes, checked with tsc. Next: Limit the query.');
+    expect(last(tutor)).toMatchObject({ text: 'Checkpoint 1 passes, checked with tsc. Next: Limit the query.', tone: 'success' });
 
     await tutor.check(collect(PASSING));
     expect(tutor.state.session?.phase).toBe('independent-check');
-    expect(tutor.state.transcript).toContainEqual({ from: 'mentor', text: 'a related task', label: 'Independent check' });
+    expect(tutor.state.transcript).toContainEqual({
+      from: 'mentor',
+      kind: 'challenge',
+      text: 'a related task',
+      label: 'Independent check',
+    });
 
     await tutor.hint();
     expect(last(tutor)?.text).toBe('Help is off for the independent check. This one is yours.');
 
     await tutor.check(collect(PASSING));
     expect(tutor.state.session?.phase).toBe('complete');
-    expect(last(tutor)).toMatchObject({ label: 'Session summary' });
+    expect(last(tutor)).toMatchObject({ kind: 'summary', label: 'Session summary' });
+    expect(last(tutor)?.summary).toMatchObject({ checkpointsPassed: 2, checkpointsUnassisted: 1, independentCheckPassed: true });
     expect(last(tutor)?.text).toContain('Checkpoints passed: 2 of 2, 1 without help.');
     expect(last(tutor)?.text).toContain('Independent check: passed.');
   });
@@ -196,10 +209,16 @@ describe('checks', () => {
     const failure = report(FAILING, { problems: [{ file: 'src/a.ts', line: 3, code: 'TS2345', message: 'Bad argument.' }] });
     await tutor.check(() => Promise.resolve(failure));
     expect(tutor.state.canExplain).toBe(true);
+    expect(last(tutor)?.problems).toEqual(failure.problems);
 
     await tutor.explain();
     expect(explain).toHaveBeenCalledWith(expect.anything(), failure, expect.anything());
-    expect(last(tutor)).toEqual({ from: 'mentor', text: 'TS2345 means the types do not match.', label: 'About these errors' });
+    expect(last(tutor)).toEqual({
+      from: 'mentor',
+      kind: 'explanation',
+      text: 'TS2345 means the types do not match.',
+      label: 'About these errors',
+    });
     expect(current(tutor)?.questionsAsked).toBe(1);
 
     await tutor.check(collect(PASSING));
@@ -216,18 +235,12 @@ describe('checks', () => {
 });
 
 describe('describeFailure', () => {
-  it('lists the first problems and counts the rest', () => {
-    const problems = Array.from({ length: 7 }, (_, i) => ({ file: 'src/a.ts', line: i + 1, code: 'TS2304', message: 'Missing.' }));
-    const text = describeFailure(report({ errors: 7, tests: 'failed', changedFiles: 1 }, { problems, scope: 'tsc and npm test' }));
-    expect(text.split('\n')).toEqual([
-      'Not passing yet: 7 errors, tests failed, checked with tsc and npm test.',
-      'src/a.ts:1 TS2304: Missing.',
-      'src/a.ts:2 TS2304: Missing.',
-      'src/a.ts:3 TS2304: Missing.',
-      'src/a.ts:4 TS2304: Missing.',
-      'src/a.ts:5 TS2304: Missing.',
-      '…and 2 more',
-    ]);
+  it('gives the headline and notes, leaving the errors to the problems list', () => {
+    const problems = [{ file: 'src/a.ts', line: 1, code: 'TS2304', message: 'Missing.' }];
+    const text = describeFailure(
+      report({ errors: 1, tests: 'failed', changedFiles: 1 }, { problems, scope: 'tsc and npm test', notes: ['Tests ran once.'] }),
+    );
+    expect(text.split('\n')).toEqual(['Not passing yet: 1 error, tests failed, checked with tsc and npm test.', 'Tests ran once.']);
   });
 });
 

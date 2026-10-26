@@ -1,4 +1,4 @@
-import { formatProblem } from '../checks/output';
+import type { Problem } from '../checks/output';
 import type { CheckReport } from '../checks/report';
 import { describeError } from '../mentor/errors';
 import type { Mentor } from '../mentor/mentor';
@@ -16,11 +16,31 @@ import {
   transition,
 } from '../session/session';
 
+export type EntryKind =
+  | 'goal'
+  | 'plan'
+  | 'hint'
+  | 'solution'
+  | 'question'
+  | 'answer'
+  | 'challenge'
+  | 'explanation'
+  | 'check'
+  | 'notice'
+  | 'summary';
+
 export interface TranscriptEntry {
   readonly from: 'learner' | 'mentor' | 'buildwise';
+  readonly kind: EntryKind;
   readonly text: string;
   /** Short tag shown above the message, such as "Hint 2 of 3". */
   readonly label?: string;
+  /** Set when the entry reports a success or a failure. */
+  readonly tone?: 'success' | 'error';
+  /** The errors behind a failed check. */
+  readonly problems?: readonly Problem[];
+  /** The numbers behind a session summary. */
+  readonly summary?: SessionSummary;
 }
 
 export type Activity = 'thinking' | 'checking';
@@ -33,8 +53,6 @@ export interface TutorState {
   /** Whether the last check failed and can be explained. */
   readonly canExplain: boolean;
 }
-
-const MAX_LISTED_PROBLEMS = 5;
 
 const REJECTION_MESSAGES: Record<RejectionReason, string> = {
   'wrong-phase': 'That is not available right now.',
@@ -75,7 +93,7 @@ export class Tutor {
   async start(goal: string): Promise<void> {
     if (this.activity || (this.session && this.session.phase !== 'complete')) return;
     const session = createSession(goal);
-    this.transcript = [{ from: 'learner', text: session.goal, label: 'Goal' }];
+    this.transcript = [{ from: 'learner', kind: 'goal', text: session.goal, label: 'Goal' }];
     this.hintsForCheckpoint = [];
     this.lastFailure = undefined;
 
@@ -88,7 +106,7 @@ export class Tutor {
       }
       this.session = result.session;
       const steps = result.session.checkpoints.map((c, i) => `${String(i + 1)}. ${c.title}: ${c.description}`);
-      this.say('mentor', steps.join('\n'), 'Plan');
+      this.add({ from: 'mentor', kind: 'plan', text: steps.join('\n'), label: 'Plan' });
       this.notice('Start with checkpoint 1. Ask for a hint when you are stuck, and check your work when you think it is done.');
     });
   }
@@ -99,7 +117,7 @@ export class Tutor {
       const text = await this.mentor.hint(next, level, [...this.hintsForCheckpoint], context);
       return () => {
         this.hintsForCheckpoint.push(text);
-        this.say('mentor', text, `Hint ${String(level)} of ${String(HINT_LEVELS)}`);
+        this.add({ from: 'mentor', kind: 'hint', text, label: `Hint ${String(level)} of ${String(HINT_LEVELS)}` });
       };
     });
   }
@@ -108,7 +126,7 @@ export class Tutor {
     await this.step({ type: 'solution-revealed' }, async (next, context) => {
       const text = await this.mentor.solution(next, context);
       return () => {
-        this.say('mentor', text, 'Solution');
+        this.add({ from: 'mentor', kind: 'solution', text, label: 'Solution' });
       };
     });
   }
@@ -119,8 +137,8 @@ export class Tutor {
     await this.step({ type: 'question-asked' }, async (next, context) => {
       const text = await this.mentor.answer(next, trimmed, context);
       return () => {
-        this.say('learner', trimmed);
-        this.say('mentor', text);
+        this.add({ from: 'learner', kind: 'question', text: trimmed });
+        this.add({ from: 'mentor', kind: 'answer', text });
       };
     });
   }
@@ -132,7 +150,7 @@ export class Tutor {
     await this.step({ type: 'question-asked' }, async (next, context) => {
       const text = await this.mentor.explain(next, failure, context);
       return () => {
-        this.say('mentor', text, 'About these errors');
+        this.add({ from: 'mentor', kind: 'explanation', text, label: 'About these errors' });
       };
     });
   }
@@ -150,7 +168,14 @@ export class Tutor {
       if (!result.ok) {
         if (result.reason === 'checks-failing') {
           this.lastFailure = report;
-          this.say('buildwise', describeFailure(report), 'Check');
+          this.add({
+            from: 'buildwise',
+            kind: 'check',
+            text: describeFailure(report),
+            label: 'Check',
+            tone: 'error',
+            problems: report.problems,
+          });
         } else {
           this.notice(REJECTION_MESSAGES[result.reason]);
         }
@@ -165,18 +190,19 @@ export class Tutor {
         this.emit();
         const task = await this.mentor.challenge(next, await this.context());
         this.commitPass(next);
-        this.notice(`Checkpoint ${String(passed + 1)} passes, checked with ${report.scope}. That was the last one.${notes}`);
-        this.say('mentor', task, 'Independent check');
+        this.notice(`Checkpoint ${String(passed + 1)} passes, checked with ${report.scope}. That was the last one.${notes}`, 'success');
+        this.add({ from: 'mentor', kind: 'challenge', text: task, label: 'Independent check' });
         this.notice('Do this one without help: hints and questions are off. Check your work when it is done.');
       } else if (next.phase === 'complete') {
         this.commitPass(next);
-        this.notice(`The independent check passes, checked with ${report.scope}.${notes}`);
+        this.notice(`The independent check passes, checked with ${report.scope}.${notes}`, 'success');
         this.finish(next);
       } else {
         this.commitPass(next);
         const upcoming = activeCheckpoint(next);
         this.notice(
           `Checkpoint ${String(passed + 1)} passes, checked with ${report.scope}. Next: ${upcoming?.title ?? ''}.${notes}`,
+          'success',
         );
       }
     });
@@ -199,7 +225,8 @@ export class Tutor {
   }
 
   private finish(session: Session): void {
-    this.say('buildwise', formatSummary(summarize(session)), 'Session summary');
+    const summary = summarize(session);
+    this.add({ from: 'buildwise', kind: 'summary', text: formatSummary(summary), label: 'Session summary', summary });
   }
 
   /**
@@ -230,19 +257,19 @@ export class Tutor {
     try {
       await work();
     } catch (error) {
-      this.notice(describeError(error));
+      this.notice(describeError(error), 'error');
     } finally {
       this.activity = undefined;
       this.emit();
     }
   }
 
-  private say(from: TranscriptEntry['from'], text: string, label?: string): void {
-    this.transcript.push(label === undefined ? { from, text } : { from, text, label });
+  private add(entry: TranscriptEntry): void {
+    this.transcript.push(entry);
   }
 
-  private notice(text: string): void {
-    this.say('buildwise', text);
+  private notice(text: string, tone?: TranscriptEntry['tone']): void {
+    this.add(tone ? { from: 'buildwise', kind: 'notice', text, tone } : { from: 'buildwise', kind: 'notice', text });
   }
 
   private emit(): void {
@@ -250,14 +277,9 @@ export class Tutor {
   }
 }
 
+/** The headline and notes of a failed check; the errors travel separately as `problems`. */
 export function describeFailure(report: CheckReport): string {
-  const lines = [`Not passing yet: ${describeEvidence(report.evidence)}, checked with ${report.scope}.`];
-  lines.push(...report.problems.slice(0, MAX_LISTED_PROBLEMS).map(formatProblem));
-  if (report.problems.length > MAX_LISTED_PROBLEMS) {
-    lines.push(`…and ${String(report.problems.length - MAX_LISTED_PROBLEMS)} more`);
-  }
-  lines.push(...report.notes);
-  return lines.join('\n');
+  return [`Not passing yet: ${describeEvidence(report.evidence)}, checked with ${report.scope}.`, ...report.notes].join('\n');
 }
 
 export function describeEvidence({ errors, tests, changedFiles }: CheckEvidence): string {

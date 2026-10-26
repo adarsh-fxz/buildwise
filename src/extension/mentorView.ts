@@ -7,6 +7,7 @@ import { describeConfigured, loadMentor, setupProvider } from './provider';
 import { runChecks } from './checks';
 import { ChangeTracker, EditorTracker, repositoryContext } from './editorContext';
 import { scanFolder } from './workspaceFiles';
+import { isWorkspaceRelative } from '../webview/fileRef';
 
 interface ActiveSession {
   readonly tutor: Tutor;
@@ -76,6 +77,12 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
         return;
       case 'openFolder':
         await vscode.commands.executeCommand('vscode.openFolder');
+        return;
+      case 'openFile':
+        await this.openFile(message.file, message.line, message.column);
+        return;
+      case 'copy':
+        await vscode.env.clipboard.writeText(message.text);
         return;
       case 'start':
         await this.start(message.goal);
@@ -152,6 +159,24 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     });
     // Work for the next checkpoint starts from a clean slate.
     if (position(tutor.state.session) !== before) changes.reset();
+  }
+
+  /** Opens a file the mentor or a check mentioned. The path comes from model output, so it is checked first. */
+  private async openFile(file: string, line?: number, column?: number): Promise<void> {
+    const folder = this.active?.folder ?? vscode.workspace.workspaceFolders?.[0];
+    if (!folder || !isWorkspaceRelative(file)) return;
+    const uri = vscode.Uri.joinPath(folder.uri, ...file.split('/'));
+    try {
+      await vscode.workspace.fs.stat(uri);
+    } catch {
+      void vscode.window.showWarningMessage(`${file} is not in this project.`);
+      return;
+    }
+    const position = new vscode.Position(Math.max((line ?? 1) - 1, 0), Math.max((column ?? 1) - 1, 0));
+    await vscode.window.showTextDocument(uri, {
+      selection: new vscode.Range(position, position),
+      viewColumn: vscode.ViewColumn.One,
+    });
   }
 
   private log(line: string): void {

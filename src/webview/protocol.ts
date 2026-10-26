@@ -32,4 +32,6 @@ export type FromWebview =
   | { readonly type: 'end' }
   | { readonly type: 'new' }
   | { readonly type: 'setup' }
-  | { readonly type: 'openFolder' };
+  | { readonly type: 'openFolder' }
+  | { readonly type: 'openFile'; readonly file: string; readonly line?: number; readonly column?: number }
+  | { readonly type: 'copy'; readonly text: string };
