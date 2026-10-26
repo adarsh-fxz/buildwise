@@ -69,7 +69,8 @@ BuildWise is read-only: it doesn't edit files or run commands without asking. Te
 - [x] **Foundation:** extension scaffold, strict TypeScript, unit tests, CI
 - [x] **Context filter:** decide which files may be shared, with a reason for each exclusion
 - [ ] **Code navigation:** find the files and symbols relevant to a goal
-- [ ] **Mentor loop:** Claude-backed planner, checkpoint state machine, hint ladder, chat panel
+- [x] **Tutoring policy:** checkpoint state machine, hint ladder, locked reveals, session summary
+- [ ] **Mentor loop:** Claude-backed planner and hints, chat panel
 - [ ] **Feedback:** react to saves, diagnostics and test results
 - [ ] **Independent check:** unassisted task, session recap, local learning log
 - [ ] **Pilot metrics (opt-in):** hints per checkpoint, checkpoint completion, return sessions
