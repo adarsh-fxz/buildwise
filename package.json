@@ -11,7 +11,7 @@
     "url": "https://github.com/adarsh-fxz/buildwise.git"
   },
   "engines": {
-    "vscode": "^1.95.0",
+    "vscode": "^1.106.0",
     "node": ">=22"
   },
   "categories": [
@@ -34,7 +34,7 @@
   ],
   "contributes": {
     "viewsContainers": {
-      "activitybar": [
+      "secondarySidebar": [
         {
           "id": "buildwise",
           "title": "BuildWise",
@@ -185,7 +185,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.5",
-    "@types/vscode": "~1.95.0",
+    "@types/vscode": "~1.106.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",

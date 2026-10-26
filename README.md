@@ -55,7 +55,7 @@ None of this is proven yet. The pilot compares BuildWise directly against Claude
 BuildWise only runs from source for now.
 
 1. Clone this repository, run `npm install`, open it in VS Code and press <kbd>F5</kbd>. A second window opens with **[Extension Development Host]** in its title. BuildWise runs only in that window.
-2. Click **BuildWise** in the status bar at the bottom of that window, or the graduation-cap icon on the left. The panel walks you through the rest:
+2. BuildWise opens in the side bar on the right, so it stays in view while you move between files. If it is hidden, click **BuildWise** in the status bar at the bottom of the window. The panel walks you through the rest:
    - **Choose an AI model:** pick a provider, paste its API key and choose a model. See [Models](#models) for free options.
    - **Open your project:** open the folder of a TypeScript project you want to work on.
 3. Describe what you want to build and press **Start session**.
@@ -125,7 +125,7 @@ Who pays is a hypothesis to test. Individual learners come first because they ar
 
 ## Development
 
-Requirements: Node.js 22+ and VS Code 1.95+.
+Requirements: Node.js 22+ and VS Code 1.106+.
 
 ```sh
 npm install

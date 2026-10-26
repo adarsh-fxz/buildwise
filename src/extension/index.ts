@@ -10,7 +10,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('BuildWise');
   const openMentor = () => vscode.commands.executeCommand(`${MentorViewProvider.viewId}.focus`);
 
-  // Always-visible way in; the activity bar icon is easy to miss.
+  // Always-visible way in, for when the right side bar is closed.
   const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
   statusItem.text = '$(mortar-board) BuildWise';
   statusItem.tooltip = 'Open the BuildWise mentor';
