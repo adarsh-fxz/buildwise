@@ -22,8 +22,19 @@ const EXAMPLE_GOALS = [
 
 // Kept outside the DOM so re-rendering doesn't lose what the learner is typing.
 const drafts = { goal: '', question: '' };
-let renderedEntries = 0;
 let current: ViewState | undefined;
+
+// What the last render showed, so only what changed since then animates.
+// Nothing animates on the first render: reopening the panel shouldn't replay it.
+interface Shown {
+  readonly entries: number;
+  readonly passed: ReadonlySet<number>;
+  readonly hintsUsed: number;
+  readonly progress: number;
+  readonly tip: string | undefined;
+}
+let shown: Shown | undefined;
+let changes = { firstNewEntry: Infinity, newlyPassed: new Set<number>(), newHint: false, fromProgress: 0, newTip: false };
 
 // Counts the seconds of the current wait so slow can be told apart from stuck.
 const ACTIVITY_TEXT = { thinking: 'Thinking', checking: 'Running your checks', reviewing: 'Reviewing your code' } as const;
@@ -50,15 +61,33 @@ vscode.postMessage({ type: 'ready' });
 function render(state: ViewState): void {
   current = state;
   trackWait(state);
+  const passed = new Set(state.checkpoints.flatMap((c, i) => (c.status === 'passed' ? [i] : [])));
+  const progress = progressPercent(state);
+  const tip = nextStep(state, SAVE_KEYS);
+  changes = shown
+    ? {
+        // A shorter transcript means a new session: everything in it is new.
+        firstNewEntry: state.transcript.length < shown.entries ? 0 : shown.entries,
+        newlyPassed: new Set([...passed].filter((i) => !shown?.passed.has(i))),
+        newHint: state.hintsUsed > shown.hintsUsed,
+        fromProgress: shown.progress,
+        newTip: tip !== shown.tip,
+      }
+    : { firstNewEntry: Infinity, newlyPassed: new Set(), newHint: false, fromProgress: progress, newTip: false };
+
   const focused = document.activeElement?.id;
   root.replaceChildren(...(state.phase === 'idle' ? idleView(state) : sessionView(state)));
   if (focused) document.getElementById(focused)?.focus();
 
   const transcript = document.getElementById('transcript');
-  if (transcript && state.transcript.length !== renderedEntries) {
-    transcript.lastElementChild?.scrollIntoView({ block: 'end' });
+  if (transcript && state.transcript.length !== shown?.entries) {
+    transcript.lastElementChild?.scrollIntoView({ block: 'end', behavior: prefersMotion() ? 'smooth' : 'auto' });
   }
-  renderedEntries = state.transcript.length;
+  shown = { entries: state.transcript.length, passed, hintsUsed: state.hintsUsed, progress, tip };
+}
+
+function prefersMotion(): boolean {
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 // Before a session -----------------------------------------------------------
@@ -150,9 +179,8 @@ function sessionView(state: ViewState): Node[] {
   return [
     sessionHeader(state),
     stepper(state),
-    ...(tip ? [el('div', { className: 'tip' }, [icon('lightbulb', 'tip-icon'), el('p', { text: tip })])] : []),
+    ...(tip ? [el('div', { className: changes.newTip ? 'tip enter' : 'tip' }, [icon('lightbulb', 'tip-icon'), el('p', { text: tip })])] : []),
     transcriptView(state),
-    ...statusLine(),
     state.phase === 'complete' ? completeActions() : sessionActions(state),
   ];
 }
@@ -171,8 +199,13 @@ function sessionHeader(state: ViewState): HTMLElement {
   }[state.phase];
   const done = state.phase === 'complete' || state.phase === 'independent-check' ? total : passed;
 
+  // Starts at the previous width so the bar glides forward instead of jumping.
   const fill = el('div', { className: 'progress-fill' });
-  fill.style.setProperty('width', `${String(total ? Math.round((done / total) * 100) : 0)}%`);
+  fill.style.setProperty('width', `${String(changes.fromProgress)}%`);
+  const target = progressPercent(state);
+  requestAnimationFrame(() => {
+    fill.style.setProperty('width', `${String(target)}%`);
+  });
   const bar = el('div', { className: 'progress', ariaLabel: `${String(done)} of ${String(total)} steps done` }, [fill]);
   bar.setAttribute('role', 'progressbar');
   bar.setAttribute('aria-valuemin', '0');
@@ -189,12 +222,20 @@ function sessionHeader(state: ViewState): HTMLElement {
   ]);
 }
 
+function progressPercent(state: ViewState): number {
+  const total = state.checkpoints.length;
+  if (total === 0) return 0;
+  if (state.phase === 'complete' || state.phase === 'independent-check') return 100;
+  const passed = state.checkpoints.filter((c) => c.status === 'passed').length;
+  return Math.round((passed / total) * 100);
+}
+
 function stepper(state: ViewState): HTMLElement {
   return el(
     'ol',
     { className: 'stepper' },
     state.checkpoints.map((checkpoint, index) =>
-      el('li', { className: `step ${checkpoint.status}` }, [
+      el('li', { className: `step ${checkpoint.status}${changes.newlyPassed.has(index) ? ' just-passed' : ''}` }, [
         stepMarker(checkpoint.status, index + 1),
         el('div', { className: 'step-body' }, [
           el('div', { className: 'step-title', text: checkpoint.title }),
@@ -213,9 +254,14 @@ function stepMarker(status: 'passed' | 'active' | 'pending', number?: number): H
 }
 
 function transcriptView(state: ViewState): HTMLElement {
-  // In a session the goal is already shown in the header.
-  const entries = state.phase === 'idle' ? state.transcript : state.transcript.filter((entry) => entry.kind !== 'goal');
-  return el('div', { id: 'transcript', className: 'transcript' }, entries.map(entryView));
+  const views = state.transcript.flatMap((entry, index) => {
+    // In a session the goal is already shown in the header.
+    if (state.phase !== 'idle' && entry.kind === 'goal') return [];
+    const view = entryView(entry);
+    if (index >= changes.firstNewEntry) view.classList.add('enter');
+    return [view];
+  });
+  return el('div', { id: 'transcript', className: 'transcript' }, views);
 }
 
 const ENTRY_ICONS: Partial<Record<Entry['kind'], IconName>> = {
@@ -315,7 +361,10 @@ function sessionActions(state: ViewState): HTMLElement {
     const dots = el(
       'span',
       { className: 'dots', ariaHidden: true },
-      Array.from({ length: state.hintLevels }, (_, i) => el('span', { className: i < used ? 'dot used' : 'dot' })),
+      Array.from({ length: state.hintLevels }, (_, i) => {
+        const justUsed = changes.newHint && i === used - 1;
+        return el('span', { className: i < used ? `dot used${justUsed ? ' just-used' : ''}` : 'dot' });
+      }),
     );
     primary.push(
       button([icon('lightbulb'), el('span', { text: left ? 'Hint' : 'No hints left' }), dots], send({ type: 'hint' }), {
@@ -333,7 +382,9 @@ function sessionActions(state: ViewState): HTMLElement {
     secondary.push(button([icon('book'), el('span', { text: 'Reveal solution' })], send({ type: 'reveal' }), { disabled: busy(state) }));
   }
 
+  // The waiting indicator sits in the pinned footer, so it shows however far up the learner has scrolled.
   return el('footer', { className: 'actions' }, [
+    ...statusLine(),
     el('div', { className: 'row wrap' }, primary),
     ...(secondary.length ? [el('div', { className: 'row wrap' }, secondary)] : []),
     ...(building
@@ -377,21 +428,24 @@ function trackWait(state: ViewState): void {
     : undefined;
 }
 
-function statusText(): string {
+function elapsedText(): string {
   if (!waiting) return '';
   const elapsed = Math.floor((Date.now() - waiting.since) / 1000);
   const slow = elapsed >= SLOW_AFTER_S ? ' This is taking a while; details are in Output → BuildWise.' : '';
-  return `${ACTIVITY_TEXT[waiting.activity]}… ${String(elapsed)}s.${slow}`;
+  return ` ${String(elapsed)}s.${slow}`;
 }
 
 function updateStatus(): void {
-  const status = document.getElementById('status');
-  if (status) status.textContent = statusText();
+  const time = document.getElementById('status-time');
+  if (time) time.textContent = elapsedText();
 }
 
 function statusLine(): HTMLElement[] {
   if (!waiting) return [];
-  const status = el('p', { id: 'status', className: 'status', text: statusText() });
+  const status = el('p', { id: 'status', className: 'status enter' }, [
+    el('span', { className: 'shimmer', text: `${ACTIVITY_TEXT[waiting.activity]}…` }),
+    el('span', { id: 'status-time', text: elapsedText() }),
+  ]);
   status.setAttribute('role', 'status');
   return [status];
 }
