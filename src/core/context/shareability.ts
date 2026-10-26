@@ -16,7 +16,7 @@ export type Shareability =
 
 export interface ShareabilityOptions {
   /** Contents of the workspace root `.gitignore`, if there is one. */
-  readonly gitignore?: string;
+  readonly gitignore?: string | undefined;
   /** Extra gitignore-style patterns from the user's settings. */
   readonly userExcludes?: readonly string[];
   readonly maxFileBytes?: number;

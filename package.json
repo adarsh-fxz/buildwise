@@ -20,7 +20,29 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [],
-  "contributes": {},
+  "contributes": {
+    "commands": [
+      {
+        "command": "buildwise.showSharedContext",
+        "title": "Show Shared Context",
+        "category": "BuildWise"
+      }
+    ],
+    "configuration": {
+      "title": "BuildWise",
+      "properties": {
+        "buildwise.context.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Extra files BuildWise must never share, as `.gitignore`-style patterns. Secrets, dependencies, build output and anything in `.gitignore` are already excluded.",
+          "scope": "resource"
+        }
+      }
+    }
+  },
   "scripts": {
     "build": "node esbuild.mjs --production",
     "watch": "node esbuild.mjs --watch",
