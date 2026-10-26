@@ -3,7 +3,8 @@ import { activeCheckpoint, HINT_LEVELS, type Session } from '../core/session/ses
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
 import { loadMentor } from './apiKey';
-import { ChangeTracker, EditorTracker, editorReport, repositoryContext } from './editorContext';
+import { runChecks } from './checks';
+import { ChangeTracker, EditorTracker, repositoryContext } from './editorContext';
 import { scanFolder } from './workspaceFiles';
 
 interface ActiveSession {
@@ -23,6 +24,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly secrets: vscode.SecretStorage,
+    private readonly workspaceState: vscode.Memento,
   ) {}
 
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -109,7 +111,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     if (!this.active) return;
     const { tutor, folder, changes } = this.active;
     const before = position(tutor.state.session);
-    await tutor.check(() => Promise.resolve(editorReport(folder, changes)));
+    await tutor.check(() => runChecks(folder, changes, this.workspaceState));
     // Work for the next checkpoint starts from a clean slate.
     if (position(tutor.state.session) !== before) changes.reset();
   }

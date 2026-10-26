@@ -17,7 +17,7 @@ BuildWise is that senior engineer: in your editor, on your real project, asking 
 1. **You set a goal.** "Add pagination to the posts page."
 2. **BuildWise reads the relevant code** (only files you allow) and breaks the goal into 3–6 checkpoints.
 3. **You write the code.** When you're stuck, you ask for a hint. Hints escalate from a question, to a pointer at the right file and line, to a concrete explanation. A full solution is only available as an explicit reveal, and the session records that you used it.
-4. **Your toolchain checks the work.** On save, BuildWise reads compiler diagnostics and test results and explains what they mean. A checkpoint passes when the code compiles and the tests pass, not when the model thinks it looks right.
+4. **Your toolchain checks the work.** When you check your work, BuildWise runs your type checker and tests, after you approve the exact commands, and lists the errors. A checkpoint passes when the code compiles and the tests pass, not when the model thinks it looks right. If you're stuck on an error, BuildWise explains what it means without writing the fix.
 5. **You prove it.** The session ends with a short task on the same concept, with hints turned off, and a recap of where you needed help.
 
 ```text
@@ -59,11 +59,13 @@ BuildWise only runs from source for now.
 3. Run **BuildWise: Set API Key** with an [Anthropic API key](https://console.anthropic.com). Usage is billed to your key. The default model is `claude-opus-5-5`; change it with the `buildwise.model` setting.
 4. Open BuildWise in the activity bar and describe what you want to build.
 
-Current limits: checks count the errors VS Code reports, which usually covers open files only, and don't run tests yet. The mentor sees your file list and the file you have open, not the whole repository.
+**Check my work** runs `tsc --noEmit` when the project has a `tsconfig.json`, and the `test` script from `package.json`. BuildWise asks before the first run and shows the exact commands. Change them with `buildwise.checks.typecheckCommand` and `buildwise.checks.testCommand`, or set either to an empty string to skip it. If a command can't run, BuildWise falls back to the errors VS Code reports and tells you.
+
+Current limits: the mentor sees your file list and the file you have open, not the whole repository. A checkpoint passes on a clean compile and passing tests; nothing yet checks that your change matches the checkpoint.
 
 ## Privacy
 
-Nothing is sent anywhere until you start a session. During a session, BuildWise sends Anthropic your goal and questions, the paths of shareable files (up to 300), and the contents of the file open in your editor if that file is shareable. Your API key is stored in the OS keychain through VS Code's secret storage.
+Nothing is sent anywhere until you start a session. During a session, BuildWise sends Anthropic your goal and questions, the paths of shareable files (up to 300), the contents of the file open in your editor if that file is shareable, and, when you ask for an explanation, the errors and the end of the test output. Your API key is stored in the OS keychain through VS Code's secret storage.
 
 BuildWise only ever considers files in the open workspace, and filters them before anything can reach a model provider. It never shares:
 
@@ -75,7 +77,7 @@ BuildWise only ever considers files in the open workspace, and filters them befo
 
 Run **BuildWise: Show Shared Context** from the command palette to see which files are shareable and why each excluded file was excluded.
 
-BuildWise is read-only: it doesn't edit files or run commands without asking. Text from the repository is treated as untrusted input to the model.
+BuildWise is read-only: it never edits your files. It runs only the check commands you approve, never in an untrusted workspace, and run **BuildWise: Ask Again Before Running Checks** to withdraw approval. Text from the repository and tool output are treated as untrusted input to the model.
 
 ## Roadmap
 
@@ -84,7 +86,7 @@ BuildWise is read-only: it doesn't edit files or run commands without asking. Te
 - [ ] **Code navigation:** find the files and symbols relevant to a goal
 - [x] **Tutoring policy:** checkpoint state machine, hint ladder, locked reveals, session summary
 - [x] **Mentor loop:** Claude-backed planner and hints, chat panel
-- [ ] **Feedback:** react to saves, diagnostics and test results
+- [x] **Feedback:** run the type checker and tests with consent, list errors, explain them without the fix
 - [ ] **Independent check:** unassisted task, session recap, local learning log
 - [ ] **Pilot metrics (opt-in):** hints per checkpoint, checkpoint completion, return sessions
 - [ ] **Pilot:** 20 developers on their own repositories, compared with Claude Code's Learning mode

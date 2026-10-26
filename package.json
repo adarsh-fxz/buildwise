@@ -18,6 +18,16 @@
     "Education",
     "Programming Languages"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "BuildWise does not run your type checker or tests in untrusted workspaces.",
+      "restrictedConfigurations": [
+        "buildwise.checks.typecheckCommand",
+        "buildwise.checks.testCommand"
+      ]
+    }
+  },
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
@@ -54,6 +64,11 @@
         "command": "buildwise.clearApiKey",
         "title": "Remove API Key",
         "category": "BuildWise"
+      },
+      {
+        "command": "buildwise.resetCheckPermissions",
+        "title": "Ask Again Before Running Checks",
+        "category": "BuildWise"
       }
     ],
     "configuration": {
@@ -73,6 +88,24 @@
           "default": "claude-opus-5-5",
           "markdownDescription": "The Claude model that writes plans and hints, such as `claude-opus-5-5` or `claude-sonnet-5-5`. Uses your API key's pricing and rate limits.",
           "scope": "application"
+        },
+        "buildwise.checks.typecheckCommand": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "markdownDescription": "Command that type-checks the project when you check your work. Leave unset to use `tsc --noEmit` in projects with a `tsconfig.json`. Set to an empty string to skip the type check.",
+          "scope": "resource"
+        },
+        "buildwise.checks.testCommand": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "markdownDescription": "Command that runs the tests when you check your work. It must run once and exit, not watch. Leave unset to use the `test` script in `package.json`. Set to an empty string to skip tests.",
+          "scope": "resource"
         }
       }
     }
