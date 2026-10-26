@@ -68,6 +68,11 @@
         "category": "BuildWise"
       },
       {
+        "command": "buildwise.testConnection",
+        "title": "Test Model Connection",
+        "category": "BuildWise"
+      },
+      {
         "command": "buildwise.removeApiKeys",
         "title": "Remove Saved API Keys",
         "category": "BuildWise"

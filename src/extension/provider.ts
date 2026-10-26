@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import * as vscode from 'vscode';
 import { createCompatibleMentor } from '../core/mentor/compatible';
 import { describeError } from '../core/mentor/errors';
+import { seconds } from '../core/mentor/instrument';
 import { createClaudeMentor, type Mentor } from '../core/mentor/mentor';
 import { chatModels, findProvider, type Provider, PROVIDERS } from '../core/mentor/providers';
 
@@ -87,7 +88,55 @@ function createMentor({ provider, model, baseURL, apiKey }: Configured): Mentor 
     model,
     ...(provider.limits && { limits: provider.limits }),
     ...(provider.maxOutputTokens !== undefined && { maxOutputTokens: provider.maxOutputTokens }),
+    ...(provider.reasoningEffort && { reasoningEffort: provider.reasoningEffort }),
   });
+}
+
+/**
+ * Times a model list and a one-word reply with the saved settings, so a slow
+ * model can be told apart from a slow or blocked connection.
+ */
+export async function testConnection(secrets: vscode.SecretStorage, log: (line: string) => void): Promise<void> {
+  const configured = await readConfigured(secrets);
+  if (!configured) {
+    void vscode.window.showWarningMessage('Set up a model provider first.');
+    return;
+  }
+  const { provider, model, baseURL, apiKey } = configured;
+  log(`Testing ${model} from ${provider.label}${baseURL ? ` at ${baseURL}` : ''}.`);
+
+  const step = async (name: string, request: () => Promise<unknown>) => {
+    const started = Date.now();
+    try {
+      await request();
+      log(`${name}: OK in ${seconds(Date.now() - started)}`);
+      return true;
+    } catch (error) {
+      log(`${name}: failed after ${seconds(Date.now() - started)}: ${describeError(error)}`);
+      return false;
+    }
+  };
+
+  const listed = await step('model list', () => listModels(provider, apiKey, baseURL));
+  const replied = await step('one-word reply', async () => {
+    const options = { timeout: provider.timeoutMs, maxRetries: 0 };
+    if (provider.id === 'anthropic') {
+      await new Anthropic({ apiKey, ...options }).messages.create({
+        model,
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: 'Reply with the word OK.' }],
+      });
+      return;
+    }
+    await new OpenAI({ apiKey: apiKey ?? 'not-needed', baseURL, ...options }).chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: 'Reply with the word OK.' }],
+      ...(provider.reasoningEffort && { reasoning_effort: provider.reasoningEffort }),
+    });
+  });
+  const summary =
+    listed && replied ? 'The model answered. Details are in Output → BuildWise.' : 'The test found a problem. Details are in Output → BuildWise.';
+  void vscode.window.showInformationMessage(summary);
 }
 
 async function readConfigured(secrets: vscode.SecretStorage): Promise<Configured | undefined> {

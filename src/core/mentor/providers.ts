@@ -19,6 +19,8 @@ export interface Provider {
   readonly maxOutputTokens?: number;
   /** How long one request may take before BuildWise gives up. */
   readonly timeoutMs: number;
+  /** Sent as reasoning_effort, only where the provider is known to accept it. */
+  readonly reasoningEffort?: 'low';
   /** Filters the provider's model list down to models that can chat. */
   readonly isChatModel?: (id: string) => boolean;
 }
@@ -37,6 +39,8 @@ export const PROVIDERS: readonly Provider[] = [
     needsKey: true,
     suggestedModel: 'gemini-3.8-flash',
     timeoutMs: CLOUD_TIMEOUT_MS,
+    // Gemini 3 thinks at its default level otherwise, which can take over a minute.
+    reasoningEffort: 'low',
     isChatModel: (id) => /^(gemini|gemma)/.test(id) && !/(embedding|image|tts|audio|live)/.test(id),
   },
   {

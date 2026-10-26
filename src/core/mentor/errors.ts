@@ -30,7 +30,7 @@ export function describeError(error: unknown): string {
     return 'The provider is limiting requests. Free tiers allow only a few per minute, so wait a minute and try again.';
   }
   if (error instanceof Anthropic.APIConnectionTimeoutError || error instanceof OpenAI.APIConnectionTimeoutError) {
-    return 'The model took too long to answer. Free tiers can be slow when busy: try again, or choose a faster model.';
+    return 'The model took too long to answer. Try again, choose a faster model, or run "BuildWise: Test Model Connection" to see where the time goes.';
   }
   if (error instanceof Anthropic.APIConnectionError || error instanceof OpenAI.APIConnectionError) {
     return 'Could not reach the model provider. Check your connection, or that Ollama is running if you use it.';

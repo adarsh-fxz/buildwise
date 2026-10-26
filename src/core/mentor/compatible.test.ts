@@ -25,6 +25,7 @@ describe('createCompatibleMentor', () => {
     const params = create.mock.calls[0]?.[0] as OpenAI.ChatCompletionCreateParamsNonStreaming;
     expect(params.model).toBe('gemini-3.8-flash');
     expect(params).not.toHaveProperty('max_completion_tokens');
+    expect(params).not.toHaveProperty('reasoning_effort');
     expect(params.messages[0]).toMatchObject({ role: 'system' });
     expect(params.messages[1]?.content).toContain('<repository>');
     expect(params.messages[1]?.content).toContain('level 1 hint');
@@ -36,10 +37,12 @@ describe('createCompatibleMentor', () => {
       model: 'm',
       limits: { maxFiles: 10, maxOpenFileChars: 10 },
       maxOutputTokens: 3000,
+      reasoningEffort: 'low',
     });
     await mentor.answer(session, 'Why?', context);
     const params = create.mock.calls[0]?.[0] as OpenAI.ChatCompletionCreateParamsNonStreaming;
     expect(params.max_completion_tokens).toBe(3000);
+    expect(params.reasoning_effort).toBe('low');
     expect(params.messages[1]?.content).toContain('Only the first 10 of 100 characters');
   });
 

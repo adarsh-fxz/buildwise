@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { resetCheckPermissions } from './checks';
 import { MentorViewProvider } from './mentorView';
-import { removeApiKeys, setupProvider } from './provider';
+import { removeApiKeys, setupProvider, testConnection } from './provider';
 import { showSharedContext } from './sharedContext';
 
 const WELCOMED_KEY = 'buildwise.welcomed';
@@ -27,6 +27,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('buildwise.showSharedContext', () => showSharedContext(output)),
     vscode.commands.registerCommand('buildwise.setupProvider', () => setupProvider(context.secrets)),
     vscode.commands.registerCommand('buildwise.removeApiKeys', () => removeApiKeys(context.secrets)),
+    vscode.commands.registerCommand('buildwise.testConnection', async () => {
+      output.show(true);
+      await testConnection(context.secrets, (line) => {
+        output.appendLine(`[${new Date().toLocaleTimeString()}] ${line}`);
+      });
+    }),
     vscode.commands.registerCommand('buildwise.resetCheckPermissions', () => resetCheckPermissions(context.workspaceState)),
   );
 

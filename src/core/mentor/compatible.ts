@@ -21,6 +21,8 @@ export interface CompatibleOptions {
   readonly limits?: ContextLimits;
   /** Omit to use the provider's default. Free tiers count it against per-minute token limits. */
   readonly maxOutputTokens?: number;
+  /** How long a thinking model may think. Not every provider accepts it, so omit unless known. */
+  readonly reasoningEffort?: OpenAI.ReasoningEffort;
 }
 
 // Plain JSON in the prompt works across providers; schema-constrained output does not.
@@ -35,12 +37,13 @@ const PLAN_ATTEMPTS = 2;
  */
 export function createCompatibleMentor(
   client: OpenAI,
-  { model, limits = DEFAULT_LIMITS, maxOutputTokens }: CompatibleOptions,
+  { model, limits = DEFAULT_LIMITS, maxOutputTokens, reasoningEffort }: CompatibleOptions,
 ): Mentor {
   const complete = async (task: string, context: RepositoryContext) => {
     const response = await client.chat.completions.create({
       model,
       ...(maxOutputTokens !== undefined && { max_completion_tokens: maxOutputTokens }),
+      ...(reasoningEffort && { reasoning_effort: reasoningEffort }),
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `${renderRepository(context, limits)}\n\n${task}` },
