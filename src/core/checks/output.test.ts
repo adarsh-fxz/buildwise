@@ -35,6 +35,28 @@ describe('parseTscOutput', () => {
     );
   });
 
+  it('reads the default pretty format and skips code frames and related locations', () => {
+    const pretty = [
+      "\u001b[96msrc/a.ts\u001b[0m:\u001b[93m2\u001b[0m:\u001b[93m7\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2451: \u001b[0mCannot redeclare block-scoped variable 'p'.",
+      '',
+      "\u001b[7m2\u001b[0m const p: Post = { id: 'a' };",
+      '        ~',
+      '',
+      '  src/b.ts:2:7',
+      "    2 const p: Post = { id: 'a', title: 't' };",
+      '            ~',
+      "    'p' was also declared here.",
+      '',
+      "src/b.ts:2:50 - error TS2322: Type 'number' is not assignable to type 'string'.",
+      '',
+      'Found 2 errors in 2 files.',
+    ].join('\n');
+    expect(parseTscOutput(pretty)).toEqual([
+      { file: 'src/a.ts', line: 2, column: 7, code: 'TS2451', message: "Cannot redeclare block-scoped variable 'p'." },
+      { file: 'src/b.ts', line: 2, column: 50, code: 'TS2322', message: "Type 'number' is not assignable to type 'string'." },
+    ]);
+  });
+
   it('ignores everything else, including colour codes', () => {
     const output = '\u001b[96msrc/a.ts\u001b[0m(1,1): error TS1005: \';\' expected.\nFound 1 error in src/a.ts:1\n';
     expect(parseTscOutput(output)).toHaveLength(1);

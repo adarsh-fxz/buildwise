@@ -1,4 +1,4 @@
-/** A compiler error with a location, as reported by `tsc --pretty false`. */
+/** A compiler error, as reported by tsc. */
 export interface Problem {
   readonly file?: string;
   readonly line?: number;
@@ -7,28 +7,33 @@ export interface Problem {
   readonly message: string;
 }
 
+// `--pretty false` prints file(line,col); the default pretty output prints file:line:col.
 const LOCATED = /^(.+?)\((\d+),(\d+)\): error (TS\d+): (.*)$/;
+const LOCATED_PRETTY = /^(.+?):(\d+):(\d+) - error (TS\d+): (.*)$/;
 const GLOBAL = /^error (TS\d+): (.*)$/;
 
 export function parseTscOutput(output: string): Problem[] {
   const problems: Problem[] = [];
-  for (const line of stripAnsi(output).split(/\r?\n/)) {
-    const located = LOCATED.exec(line);
+  // Indented lines directly under an error continue its message. A blank line
+  // ends it; pretty output follows with code frames and related locations.
+  let continuing = false;
+  for (const line of output.split(/\r?\n/)) {
+    const plain = stripAnsi(line);
+    const located = LOCATED.exec(plain) ?? LOCATED_PRETTY.exec(plain);
+    const global = located ? null : GLOBAL.exec(plain);
     if (located) {
       const [, file = '', row = '0', column = '0', code = '', message = ''] = located;
       problems.push({ file: file.replaceAll('\\', '/'), line: Number(row), column: Number(column), code, message });
-      continue;
-    }
-    const global = GLOBAL.exec(line);
-    if (global) {
+      continuing = true;
+    } else if (global) {
       const [, code = '', message = ''] = global;
       problems.push({ code, message });
-      continue;
-    }
-    // tsc indents the continuation lines of a long message.
-    const previous = problems.at(-1);
-    if (previous && /^\s+\S/.test(line)) {
-      problems[problems.length - 1] = { ...previous, message: `${previous.message} ${line.trim()}` };
+      continuing = true;
+    } else if (continuing && /^\s+\S/.test(plain)) {
+      const previous = problems[problems.length - 1];
+      if (previous) problems[problems.length - 1] = { ...previous, message: `${previous.message} ${plain.trim()}` };
+    } else {
+      continuing = false;
     }
   }
   return problems;
