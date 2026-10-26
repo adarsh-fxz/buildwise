@@ -29,7 +29,9 @@
     }
   },
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -50,6 +52,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "buildwise.openMentor",
+        "title": "Open Mentor",
+        "category": "BuildWise"
+      },
       {
         "command": "buildwise.showSharedContext",
         "title": "Show Shared Context",

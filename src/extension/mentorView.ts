@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { activeCheckpoint, HINT_LEVELS, type Session } from '../core/session/session';
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
-import { loadMentor } from './provider';
+import { describeConfigured, loadMentor, setupProvider } from './provider';
 import { runChecks } from './checks';
 import { ChangeTracker, EditorTracker, repositoryContext } from './editorContext';
 import { scanFolder } from './workspaceFiles';
@@ -19,7 +19,10 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
   private view: vscode.WebviewView | undefined;
   private active: ActiveSession | undefined;
   private starting = false;
+  private latest: TutorState | undefined;
+  private model: string | undefined;
   private readonly editors = new EditorTracker();
+  private readonly subscriptions: vscode.Disposable[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -37,18 +40,40 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     view.webview.onDidReceiveMessage((message: FromWebview) => {
       void this.handle(message);
     });
+    // Keep the getting-started steps current however setup happens.
+    const refresh = () => void this.refreshSetup();
+    this.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('buildwise')) refresh();
+      }),
+      this.secrets.onDidChange(refresh),
+      vscode.workspace.onDidChangeWorkspaceFolders(refresh),
+    );
   }
 
   dispose(): void {
     this.editors.dispose();
     this.active?.changes.dispose();
+    for (const subscription of this.subscriptions) subscription.dispose();
+  }
+
+  private async refreshSetup(): Promise<void> {
+    this.model = await describeConfigured(this.secrets);
+    this.post(this.latest);
   }
 
   private async handle(message: FromWebview): Promise<void> {
     const tutor = this.active?.tutor;
     switch (message.type) {
       case 'ready':
-        this.post(tutor?.state);
+        this.latest = tutor?.state;
+        await this.refreshSetup();
+        return;
+      case 'setup':
+        await setupProvider(this.secrets);
+        return;
+      case 'openFolder':
+        await vscode.commands.executeCommand('vscode.openFolder');
         return;
       case 'start':
         await this.start(message.goal);
@@ -117,7 +142,11 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
   }
 
   private post(state: TutorState | undefined): void {
-    const message: ToWebview = { type: 'state', state: toViewState(state) };
+    this.latest = state;
+    const message: ToWebview = {
+      type: 'state',
+      state: toViewState(state, this.model, !vscode.workspace.workspaceFolders?.length),
+    };
     void this.view?.webview.postMessage(message);
   }
 
@@ -147,7 +176,7 @@ function position(session: Session | undefined): string {
   return `${session.phase}:${String(session.checkpoints.findIndex((c) => c.status === 'active'))}`;
 }
 
-function toViewState(state: TutorState | undefined): ViewState {
+function toViewState(state: TutorState | undefined, model: string | undefined, needsFolder: boolean): ViewState {
   const session = state?.session;
   const current = session && activeCheckpoint(session);
   return {
@@ -159,6 +188,8 @@ function toViewState(state: TutorState | undefined): ViewState {
     canExplain: state?.canExplain ?? false,
     activity: state?.activity,
     transcript: state?.transcript ?? [],
+    model,
+    needsFolder,
   };
 }
 

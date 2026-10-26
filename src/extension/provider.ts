@@ -31,6 +31,12 @@ export async function loadMentor(secrets: vscode.SecretStorage): Promise<Mentor 
   return createMentor(configured);
 }
 
+/** "gemini-3.8-flash from Google Gemini", or undefined until setup is complete. */
+export async function describeConfigured(secrets: vscode.SecretStorage): Promise<string | undefined> {
+  const configured = await readConfigured(secrets);
+  return configured && `${configured.model} from ${configured.provider.label}`;
+}
+
 export async function setupProvider(secrets: vscode.SecretStorage): Promise<boolean> {
   const picked = await vscode.window.showQuickPick(
     PROVIDERS.map((provider) => ({

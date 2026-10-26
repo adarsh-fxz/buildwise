@@ -14,6 +14,9 @@ export interface ViewState {
   /** Set while waiting on the model or the learner's tools; actions are disabled. */
   readonly activity: Activity | undefined;
   readonly transcript: readonly TranscriptEntry[];
+  /** The model in use, such as "gemini-3.8-flash from Google Gemini"; undefined until set up. */
+  readonly model: string | undefined;
+  readonly needsFolder: boolean;
 }
 
 export type ToWebview = { readonly type: 'state'; readonly state: ViewState };
@@ -27,4 +30,6 @@ export type FromWebview =
   | { readonly type: 'explain' }
   | { readonly type: 'ask'; readonly question: string }
   | { readonly type: 'end' }
-  | { readonly type: 'new' };
+  | { readonly type: 'new' }
+  | { readonly type: 'setup' }
+  | { readonly type: 'openFolder' };

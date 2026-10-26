@@ -33,6 +33,8 @@ function render(state: ViewState): void {
 const ACTIVITY_TEXT = { thinking: 'Thinking…', checking: 'Running your checks…' } as const;
 
 function idleView(state: ViewState): Node[] {
+  if (state.model === undefined || state.needsFolder) return gettingStarted(state);
+
   const goal = el('textarea', { id: 'goal', rows: 3, placeholder: 'Add pagination to the posts page' });
   goal.value = drafts.goal;
   goal.addEventListener('input', () => (drafts.goal = goal.value));
@@ -51,8 +53,41 @@ function idleView(state: ViewState): Node[] {
       el('p', { text: 'Describe a feature in this project. BuildWise plans it with you, and you write the code.' }),
       goal,
       button(state.activity ? 'Planning…' : 'Start session', start, { primary: true, disabled: busy(state) }),
+      el('p', { className: 'note' }, [
+        document.createTextNode(`Using ${state.model}. `),
+        button('Change', send({ type: 'setup' }), { link: true }),
+      ]),
     ]),
     ...(state.transcript.length ? [transcriptView(state)] : []),
+  ];
+}
+
+/** The steps before a first session: a model, then a project folder. */
+function gettingStarted(state: ViewState): Node[] {
+  const step = (done: boolean, title: string, text: string, action: HTMLButtonElement) =>
+    el('li', { className: done ? 'passed' : 'active' }, [
+      el('span', { className: 'marker', text: done ? '✓' : '›', ariaHidden: true }),
+      el('div', {}, [el('div', { className: 'title', text: title }), ...(done ? [] : [el('div', { className: 'description', text }), action])]),
+    ]);
+  return [
+    el('section', { className: 'intro' }, [
+      el('h2', { text: 'Get started' }),
+      el('p', { text: 'BuildWise is a mentor: it plans a feature with you and gives hints, and you write the code.' }),
+    ]),
+    el('ol', { className: 'checkpoints steps' }, [
+      step(
+        state.model !== undefined,
+        'Choose an AI model',
+        'BuildWise needs a model to plan and give hints. Google Gemini and Groq have free tiers.',
+        button('Set up a model', send({ type: 'setup' }), { primary: true }),
+      ),
+      step(
+        !state.needsFolder,
+        'Open your project',
+        'Open the folder of the project you want to build in.',
+        button('Open Folder', send({ type: 'openFolder' }), { primary: state.model !== undefined }),
+      ),
+    ]),
   ];
 }
 

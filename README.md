@@ -54,10 +54,11 @@ None of this is proven yet. The pilot compares BuildWise directly against Claude
 
 BuildWise only runs from source for now.
 
-1. Clone this repository, run `npm install`, open it in VS Code and press <kbd>F5</kbd>.
-2. In the window that opens, open a TypeScript project.
-3. Run **BuildWise: Set Up Model Provider**, choose a provider, paste its API key and pick a model. See [Models](#models) for free options.
-4. Open BuildWise in the activity bar and describe what you want to build.
+1. Clone this repository, run `npm install`, open it in VS Code and press <kbd>F5</kbd>. A second window opens with **[Extension Development Host]** in its title. BuildWise runs only in that window.
+2. Click **BuildWise** in the status bar at the bottom of that window, or the graduation-cap icon on the left. The panel walks you through the rest:
+   - **Choose an AI model:** pick a provider, paste its API key and choose a model. See [Models](#models) for free options.
+   - **Open your project:** open the folder of a TypeScript project you want to work on.
+3. Describe what you want to build and press **Start session**.
 
 **Check my work** runs `tsc --noEmit` when the project has a `tsconfig.json`, and the `test` script from `package.json`. BuildWise asks before the first run and shows the exact commands. Change them with `buildwise.checks.typecheckCommand` and `buildwise.checks.testCommand`, or set either to an empty string to skip it. If a command can't run, BuildWise falls back to the errors VS Code reports and tells you.
 

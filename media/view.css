@@ -191,3 +191,7 @@ footer {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.steps button {
+  margin-top: 6px;
+}
