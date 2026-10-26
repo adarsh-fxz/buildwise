@@ -57,7 +57,8 @@ describe('renderRepository', () => {
 
 describe('task prompts', () => {
   it('asks for a bounded number of checkpoints', () => {
-    expect(planPrompt('Add pagination')).toContain('3 to 6 checkpoints');
+    expect(planPrompt('Add pagination')).toContain('1 to 4 checkpoints');
+    expect(planPrompt('Add pagination')).toContain('never a checkpoint of its own');
   });
 
   it('marks the current checkpoint and carries the level rule', () => {
@@ -70,7 +71,11 @@ describe('task prompts', () => {
   it('passes earlier hints so the next one goes further', () => {
     const prompt = hintPrompt(buildingSession(), 2, ['Where does the page number come from?']);
     expect(prompt).toContain('1. Where does the page number come from?');
-    expect(prompt).toContain('Do not write code.');
+    expect(prompt).toContain('do not write the code');
+  });
+
+  it('ends the ladder with a skeleton that leaves the key part blank', () => {
+    expect(hintPrompt(buildingSession(), 3, ['a', 'b'])).toContain('replaced by ___');
   });
 
   it('rejects a hint level that does not exist', () => {
