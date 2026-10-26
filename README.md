@@ -56,16 +56,31 @@ BuildWise only runs from source for now.
 
 1. Clone this repository, run `npm install`, open it in VS Code and press <kbd>F5</kbd>.
 2. In the window that opens, open a TypeScript project.
-3. Run **BuildWise: Set API Key** with an [Anthropic API key](https://console.anthropic.com). Usage is billed to your key. The default model is `claude-opus-5-5`; change it with the `buildwise.model` setting.
+3. Run **BuildWise: Set Up Model Provider**, choose a provider, paste its API key and pick a model. See [Models](#models) for free options.
 4. Open BuildWise in the activity bar and describe what you want to build.
 
 **Check my work** runs `tsc --noEmit` when the project has a `tsconfig.json`, and the `test` script from `package.json`. BuildWise asks before the first run and shows the exact commands. Change them with `buildwise.checks.typecheckCommand` and `buildwise.checks.testCommand`, or set either to an empty string to skip it. If a command can't run, BuildWise falls back to the errors VS Code reports and tells you.
 
 Current limits: the mentor sees your file list and the file you have open, not the whole repository. A checkpoint passes on a clean compile and passing tests; nothing yet checks that your change matches the checkpoint.
 
+## Models
+
+BuildWise works with any of these. Run **BuildWise: Set Up Model Provider** to switch; the model list comes live from the provider, so it is always current.
+
+| Provider | Cost | Notes |
+| --- | --- | --- |
+| [Google Gemini](https://aistudio.google.com/apikey) | Free tier | No card needed. The easiest free start. |
+| [Groq](https://console.groq.com/keys) | Free tier | Very fast. Small per-minute limits, so BuildWise sends a shorter excerpt of your open file. |
+| [OpenRouter](https://openrouter.ai/keys) | Free models | Only models marked `:free` are listed, about 50 requests a day. |
+| [Ollama](https://ollama.com) | Free | Runs on your computer, so nothing leaves it. Needs a capable machine. |
+| [Anthropic Claude](https://console.anthropic.com) | Paid | |
+| Other | Varies | Any OpenAI-compatible endpoint, such as Mistral or Cerebras. |
+
+Free tiers change often and have daily limits. Smaller models give weaker hints and may struggle with the plan format; BuildWise retries once and tells you if it fails. Read your provider's terms before using a free tier with code you can't share: some free tiers, including Gemini's, may use what you send to improve their models.
+
 ## Privacy
 
-Nothing is sent anywhere until you start a session. During a session, BuildWise sends Anthropic your goal and questions, the paths of shareable files (up to 300), the contents of the file open in your editor if that file is shareable, and, when you ask for an explanation, the errors and the end of the test output. Your API key is stored in the OS keychain through VS Code's secret storage.
+Nothing is sent anywhere until you start a session. During a session, BuildWise sends the model provider you chose your goal and questions, the paths of shareable files (up to 300), the contents of the file open in your editor if that file is shareable, and, when you ask for an explanation, the errors and the end of the test output. Your API key is stored in the OS keychain through VS Code's secret storage.
 
 BuildWise only ever considers files in the open workspace, and filters them before anything can reach a model provider. It never shares:
 
