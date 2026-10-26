@@ -20,7 +20,13 @@ import { MentorError } from './errors';
 /** Generates the words. Whether a hint or reveal is allowed is the session's decision, not the mentor's. */
 export interface Mentor {
   plan(goal: string, context: RepositoryContext): Promise<CheckpointPlan[]>;
-  hint(session: Session, level: number, previousHints: readonly string[], context: RepositoryContext): Promise<string>;
+  hint(
+    session: Session,
+    level: number,
+    previousHints: readonly string[],
+    context: RepositoryContext,
+    failure?: string,
+  ): Promise<string>;
   solution(session: Session, context: RepositoryContext): Promise<string>;
   answer(session: Session, question: string, context: RepositoryContext): Promise<string>;
   /** A related task for the independent check. */
@@ -94,8 +100,8 @@ export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MO
       }
       return response.parsed_output.checkpoints;
     },
-    hint: (session, level, previousHints, context) =>
-      text(hintPrompt(session, level, previousHints), context, 'low'),
+    hint: (session, level, previousHints, context, failure) =>
+      text(hintPrompt(session, level, previousHints, failure), context, 'low'),
     solution: (session, context) => text(solutionPrompt(session), context, 'medium'),
     answer: (session, question, context) => text(answerPrompt(session, question), context, 'low'),
     challenge: (session, context) => text(challengePrompt(session), context, 'low'),

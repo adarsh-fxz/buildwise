@@ -198,7 +198,7 @@ function stepper(state: ViewState): HTMLElement {
         stepMarker(checkpoint.status, index + 1),
         el('div', { className: 'step-body' }, [
           el('div', { className: 'step-title', text: checkpoint.title }),
-          ...(checkpoint.status === 'active' ? [el('p', { className: 'muted', text: checkpoint.description })] : []),
+          ...(checkpoint.status === 'active' ? [richText(checkpoint.description, actions)] : []),
         ]),
       ]),
     ),

@@ -18,9 +18,12 @@ export function nextStep(state: ViewState, saveKeys: string): string | undefined
       return `Build this one on your own: hints and questions are off. Save with ${saveKeys}, then check your work.`;
     case 'building':
       if (last?.kind === 'check' && last.tone === 'error') {
-        return state.canExplain
-          ? 'Fix the first error in the list, save, and check again. Not sure what it means? Explain the errors.'
-          : 'Fix the first error in the list, save, and check again.';
+        const hasErrors = Boolean(last.problems?.length);
+        const fix = hasErrors
+          ? 'Fix the first error in the list, save, and check again.'
+          : 'Read what is still missing above, change your code, save, and check again.';
+        if (state.revealUnlocked) return `${fix} You have used every hint, so you can also reveal the solution.`;
+        return hasErrors && state.canExplain ? `${fix} Not sure what it means? Explain the errors.` : fix;
       }
       if (state.revealUnlocked) {
         return 'You have used every hint. Keep trying, or reveal the solution and type it out yourself.';

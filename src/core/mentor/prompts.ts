@@ -58,7 +58,8 @@ Break this into 1 to 4 checkpoints, as few as the goal needs, that they complete
 - description: what the code should do when this checkpoint is done, in one or two sentences. Do not explain how to write it.`;
 }
 
-export function hintPrompt(session: Session, level: number, previousHints: readonly string[]): string {
+/** `failure` is what the last check found, when the hint follows a failed check. */
+export function hintPrompt(session: Session, level: number, previousHints: readonly string[], failure?: string): string {
   const instruction = HINT_INSTRUCTIONS[level];
   if (!instruction) {
     throw new RangeError(`No hint level ${String(level)}`);
@@ -66,9 +67,12 @@ export function hintPrompt(session: Session, level: number, previousHints: reado
   const earlier = previousHints.length
     ? `\n\nHints already given for this checkpoint, from first to last. Go further than these without repeating them:\n${previousHints.map((hint, i) => `${String(i + 1)}. ${hint}`).join('\n')}`
     : '';
+  const failed = failure
+    ? `\n\nTheir last check failed. This is what it found:\n<toolchain>\n${defuse(failure)}\n</toolchain>\nAim this hint at what failed.`
+    : '';
   return `${describeSession(session)}
 
-The learner asked for a level ${String(level)} hint. ${instruction}${earlier}`;
+The learner needs a level ${String(level)} hint. ${instruction}${earlier}${failed}`;
 }
 
 export function solutionPrompt(session: Session): string {

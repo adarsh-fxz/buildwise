@@ -27,10 +27,30 @@ describe('nextStep', () => {
     const failed: ViewState = {
       ...base,
       canExplain: true,
-      transcript: [{ from: 'buildwise', kind: 'check', text: 'Not passing yet', tone: 'error' }],
+      transcript: [
+        {
+          from: 'buildwise',
+          kind: 'check',
+          text: 'Not passing yet',
+          tone: 'error',
+          problems: [{ file: 'a.ts', line: 1, code: 'TS1', message: 'x' }],
+        },
+      ],
     };
     expect(nextStep(failed, 'Ctrl+S')).toContain('Fix the first error');
     expect(nextStep(failed, 'Ctrl+S')).toContain('Explain the errors');
+  });
+
+  it('points at the review feedback when the code compiles but falls short', () => {
+    const reviewed: ViewState = {
+      ...base,
+      hintsUsed: 3,
+      revealUnlocked: true,
+      transcript: [{ from: 'buildwise', kind: 'check', text: 'Not passing yet', tone: 'error', problems: [] }],
+    };
+    expect(nextStep(reviewed, 'Ctrl+S')).toBe(
+      'Read what is still missing above, change your code, save, and check again. You have used every hint, so you can also reveal the solution.',
+    );
   });
 
   it('mentions the reveal once every hint is used', () => {

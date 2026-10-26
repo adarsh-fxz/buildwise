@@ -1,4 +1,4 @@
-import type { Problem } from '../checks/output';
+import { formatProblem, type Problem } from '../checks/output';
 import type { CheckReport } from '../checks/report';
 import { describeError } from '../mentor/errors';
 import type { Mentor, Review } from '../mentor/mentor';
@@ -189,6 +189,7 @@ export class Tutor {
             tone: 'error',
             problems: report.problems,
           });
+          await this.hintAfterFailure(review && !review.passes ? review.feedback : describeProblems(report));
         } else {
           this.notice(REJECTION_MESSAGES[result.reason]);
         }
@@ -221,6 +222,24 @@ export class Tutor {
         );
       }
     });
+  }
+
+  /**
+   * Gives the next hint, aimed at what the check found. It counts as a hint,
+   * and does nothing in the independent check or once hints run out.
+   */
+  private async hintAfterFailure(failure: string): Promise<void> {
+    const session = this.session;
+    if (!session) return;
+    const result = transition(session, { type: 'hint-requested' });
+    if (!result.ok) return;
+    this.activity = 'thinking';
+    this.emit();
+    const level = activeCheckpoint(result.session)?.hintsUsed ?? 0;
+    const text = await this.mentor.hint(result.session, level, [...this.hintsForCheckpoint], await this.context(), failure);
+    this.session = result.session;
+    this.hintsForCheckpoint.push(text);
+    this.add({ from: 'mentor', kind: 'hint', text, label: `Hint ${String(level)} of ${String(HINT_LEVELS)}` });
   }
 
   /** Asks whether the saved code does what the current step, or the independent-check task, asks. */
@@ -309,6 +328,16 @@ export function describeFailure(report: CheckReport, evidence: CheckEvidence, re
   const lines = [`Not passing yet: ${describeEvidence(evidence)}, checked with ${report.scope}.`];
   if (review && !review.passes) lines.push(review.feedback);
   return [...lines, ...report.notes].join('\n');
+}
+
+const MAX_PROBLEMS_FOR_HINT = 3;
+const MAX_TEST_OUTPUT_FOR_HINT = 1500;
+
+/** What a failed check found, briefly, for the hint that follows it. */
+function describeProblems(report: CheckReport): string {
+  const lines = [describeEvidence(report.evidence), ...report.problems.slice(0, MAX_PROBLEMS_FOR_HINT).map(formatProblem)];
+  if (report.testOutput) lines.push(report.testOutput.slice(-MAX_TEST_OUTPUT_FOR_HINT));
+  return lines.join('\n');
 }
 
 export function describeEvidence(evidence: ToolEvidence | CheckEvidence): string {

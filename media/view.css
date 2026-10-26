@@ -332,6 +332,10 @@ input::placeholder {
   font-weight: 600;
 }
 
+.step-body .body {
+  color: var(--muted);
+}
+
 .step.pending .step-title,
 .step.passed .step-title {
   color: var(--muted);

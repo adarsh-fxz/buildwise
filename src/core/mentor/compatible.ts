@@ -78,7 +78,8 @@ export function createCompatibleMentor(
       }
       throw new MentorError('malformed');
     },
-    hint: (session, level, previousHints, context) => complete(hintPrompt(session, level, previousHints), context),
+    hint: (session, level, previousHints, context, failure) =>
+      complete(hintPrompt(session, level, previousHints, failure), context),
     solution: (session, context) => complete(solutionPrompt(session), context),
     answer: (session, question, context) => complete(answerPrompt(session, question), context),
     challenge: (session, context) => complete(challengePrompt(session), context),

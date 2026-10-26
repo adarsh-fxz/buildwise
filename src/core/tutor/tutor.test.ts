@@ -95,7 +95,7 @@ describe('Tutor', () => {
   it('explains failing checks and does not advance', async () => {
     const tutor = await startedTutor();
     await tutor.check(collect(FAILING));
-    expect(last(tutor)).toEqual({
+    expect(tutor.state.transcript.at(-2)).toEqual({
       from: 'buildwise',
       kind: 'check',
       text: 'Not passing yet: 2 errors, checked with tsc.',
@@ -211,7 +211,7 @@ describe('checks', () => {
     const failure = report(FAILING, { problems: [{ file: 'src/a.ts', line: 3, code: 'TS2345', message: 'Bad argument.' }] });
     await tutor.check(() => Promise.resolve(failure));
     expect(tutor.state.canExplain).toBe(true);
-    expect(last(tutor)?.problems).toEqual(failure.problems);
+    expect(tutor.state.transcript.find((entry) => entry.kind === 'check')?.problems).toEqual(failure.problems);
 
     await tutor.explain();
     expect(explain).toHaveBeenCalledWith(expect.anything(), failure, expect.anything());
@@ -289,6 +289,45 @@ describe('review', () => {
     await tutor.check(collect(PASSING));
     expect(current(tutor)?.title).toBe('Read the page param');
     expect(last(tutor)).toMatchObject({ text: 'offline', tone: 'error' });
+  });
+});
+
+describe('hints after a failed check', () => {
+  it('gives the next hint, aimed at the errors, and counts it', async () => {
+    const hint = vi.fn().mockResolvedValue('Look at the return type.');
+    const tutor = await startedTutor(fakeMentor({ hint }));
+    const problems = [{ file: 'src/a.ts', line: 3, code: 'TS2322', message: 'Type mismatch.' }];
+    await tutor.check(collect(FAILING, { problems }));
+    expect(last(tutor)).toEqual({ from: 'mentor', kind: 'hint', text: 'Look at the return type.', label: 'Hint 1 of 3' });
+    expect(current(tutor)?.hintsUsed).toBe(1);
+    expect(hint.mock.calls[0]?.[4]).toBe('2 errors\nsrc/a.ts:3 TS2322: Type mismatch.');
+  });
+
+  it("aims the hint at the review's feedback", async () => {
+    const hint = vi.fn().mockResolvedValue('What should isEven return for 4?');
+    const review = vi.fn().mockResolvedValue({ passes: false, feedback: 'isEven never returns anything.' });
+    const tutor = await startedTutor(fakeMentor({ hint, review }));
+    await tutor.check(collect(PASSING));
+    expect(hint.mock.calls[0]?.[4]).toBe('isEven never returns anything.');
+  });
+
+  it('climbs one level per failed check and stops when hints run out', async () => {
+    const hint = vi.fn((_s, level: number) => Promise.resolve(`hint ${String(level)}`));
+    const tutor = await startedTutor(fakeMentor({ hint }));
+    for (let i = 0; i < 4; i++) await tutor.check(collect(FAILING));
+    expect(hint).toHaveBeenCalledTimes(3);
+    expect(current(tutor)?.hintsUsed).toBe(3);
+    expect(last(tutor)?.kind).toBe('check');
+  });
+
+  it('gives no hints during the independent check', async () => {
+    const hint = vi.fn();
+    const tutor = await startedTutor(fakeMentor({ hint }));
+    await tutor.check(collect(PASSING));
+    await tutor.check(collect(PASSING));
+    await tutor.check(collect(FAILING));
+    expect(tutor.state.session?.phase).toBe('independent-check');
+    expect(hint).not.toHaveBeenCalled();
   });
 });
 

@@ -21,8 +21,8 @@ export function instrument(mentor: Mentor, log: (line: string) => void, now: () 
 
   return {
     plan: (goal, context) => timed('plan', () => mentor.plan(goal, context)),
-    hint: (session, level, previousHints, context) =>
-      timed(`hint ${String(level)}`, () => mentor.hint(session, level, previousHints, context)),
+    hint: (session, level, previousHints, context, failure) =>
+      timed(`hint ${String(level)}`, () => mentor.hint(session, level, previousHints, context, failure)),
     solution: (session, context) => timed('solution', () => mentor.solution(session, context)),
     answer: (session, question, context) => timed('answer', () => mentor.answer(session, question, context)),
     challenge: (session, context) => timed('independent check', () => mentor.challenge(session, context)),
