@@ -8,7 +8,13 @@ export interface RepositoryContext {
   readonly openFile?: { readonly path: string; readonly content: string } | undefined;
 }
 
-export const MAX_LISTED_FILES = 300;
+/** How much of the repository fits in one request. Small free tiers need less. */
+export interface ContextLimits {
+  readonly maxFiles: number;
+  readonly maxOpenFileChars: number;
+}
+
+export const DEFAULT_LIMITS: ContextLimits = { maxFiles: 300, maxOpenFileChars: 256 * 1024 };
 
 export const SYSTEM_PROMPT = `You are BuildWise, a senior engineer mentoring a developer while they build a feature in their own codebase. Success means they can do this kind of work without you.
 
@@ -23,14 +29,19 @@ export const HINT_INSTRUCTIONS: Readonly<Record<number, string>> = {
   3: 'Explain the approach concretely: which pieces are involved, in what order, and why. You may include up to three lines of illustrative code, but not a drop-in solution.',
 };
 
-export function renderRepository({ files, openFile }: RepositoryContext): string {
-  const listed = files.slice(0, MAX_LISTED_FILES);
+export function renderRepository({ files, openFile }: RepositoryContext, limits = DEFAULT_LIMITS): string {
+  const listed = files.slice(0, limits.maxFiles);
   const lines = ['<repository>', 'Files in the workspace:', ...listed];
   if (files.length > listed.length) {
     lines.push(`(${String(files.length - listed.length)} more files not listed)`);
   }
   if (openFile) {
-    lines.push('', 'The learner has this file open:', `<file path="${openFile.path}">`, defuse(openFile.content), '</file>');
+    const { content } = openFile;
+    const shown = content.slice(0, limits.maxOpenFileChars);
+    lines.push('', 'The learner has this file open:', `<file path="${openFile.path}">`, defuse(shown), '</file>');
+    if (shown.length < content.length) {
+      lines.push(`(Only the first ${String(shown.length)} of ${String(content.length)} characters of this file are shown.)`);
+    }
   }
   lines.push('</repository>');
   return lines.join('\n');

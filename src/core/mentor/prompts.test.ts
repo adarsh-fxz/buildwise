@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, transition, type Session } from '../session/session';
-import { answerPrompt, explainPrompt, hintPrompt, MAX_LISTED_FILES, planPrompt, renderRepository } from './prompts';
+import { answerPrompt, DEFAULT_LIMITS, explainPrompt, hintPrompt, planPrompt, renderRepository } from './prompts';
 
 function buildingSession(): Session {
   const result = transition(createSession('Add pagination'), {
@@ -36,11 +36,22 @@ describe('renderRepository', () => {
   });
 
   it('caps the file list and says how many were left out', () => {
-    const files = Array.from({ length: MAX_LISTED_FILES + 5 }, (_, i) => `f${String(i)}.ts`);
+    const { maxFiles } = DEFAULT_LIMITS;
+    const files = Array.from({ length: maxFiles + 5 }, (_, i) => `f${String(i)}.ts`);
     const text = renderRepository({ files });
-    expect(text).toContain(`f${String(MAX_LISTED_FILES - 1)}.ts`);
-    expect(text).not.toContain(`f${String(MAX_LISTED_FILES)}.ts`);
+    expect(text).toContain(`f${String(maxFiles - 1)}.ts`);
+    expect(text).not.toContain(`f${String(maxFiles)}.ts`);
     expect(text).toContain('(5 more files not listed)');
+  });
+
+  it('shortens the open file to the limit and says so', () => {
+    const text = renderRepository(
+      { files: ['a.ts', 'b.ts', 'c.ts'], openFile: { path: 'a.ts', content: 'x'.repeat(50) } },
+      { maxFiles: 2, maxOpenFileChars: 20 },
+    );
+    expect(text).toContain(`${'x'.repeat(20)}\n</file>`);
+    expect(text).toContain('(Only the first 20 of 50 characters of this file are shown.)');
+    expect(text).toContain('(1 more files not listed)');
   });
 });
 
