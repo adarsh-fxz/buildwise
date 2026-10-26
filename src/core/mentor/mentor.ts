@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import type { CheckReport } from '../checks/report';
@@ -14,6 +14,7 @@ import {
   solutionPrompt,
   SYSTEM_PROMPT,
 } from './prompts';
+import { MentorError } from './errors';
 
 /** Generates the words. Whether a hint or reveal is allowed is the session's decision, not the mentor's. */
 export interface Mentor {
@@ -27,16 +28,9 @@ export interface Mentor {
   explain(session: Session, report: CheckReport, context: RepositoryContext): Promise<string>;
 }
 
-export class MentorError extends Error {
-  constructor(readonly kind: 'refused' | 'truncated' | 'empty') {
-    super(`The model response was ${kind}`);
-    this.name = 'MentorError';
-  }
-}
-
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
-const PlanSchema = z.object({
+export const PlanSchema = z.object({
   checkpoints: z.array(z.object({ title: z.string(), description: z.string() })),
 });
 
@@ -97,30 +91,6 @@ export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MO
     challenge: (session, context) => text(challengePrompt(session), context, 'low'),
     explain: (session, report, context) => text(explainPrompt(session, report), context, 'low'),
   };
-}
-
-/** A message the learner can act on. */
-export function describeError(error: unknown): string {
-  if (error instanceof MentorError) {
-    return {
-      refused: 'The model declined to answer that. Try rephrasing.',
-      truncated: 'The answer was too long and got cut off. Try again.',
-      empty: 'The model returned nothing usable. Try again.',
-    }[error.kind];
-  }
-  if (error instanceof Anthropic.AuthenticationError) {
-    return 'Your Anthropic API key was rejected. Run "BuildWise: Set API Key" to replace it.';
-  }
-  if (error instanceof Anthropic.RateLimitError) {
-    return 'The Anthropic API is rate limiting requests. Wait a moment and try again.';
-  }
-  if (error instanceof Anthropic.APIConnectionError) {
-    return 'Could not reach the Anthropic API. Check your connection.';
-  }
-  if (error instanceof Anthropic.APIError) {
-    return `The Anthropic API returned an error: ${error.message}`;
-  }
-  return error instanceof Error ? error.message : String(error);
 }
 
 function checkStop(reason: Anthropic.Beta.BetaStopReason | null): void {

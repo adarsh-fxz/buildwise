@@ -1,7 +1,8 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { createSession } from '../session/session';
-import { createClaudeMentor, DEFAULT_MODEL, describeError, MentorError } from './mentor';
+import { describeError, MentorError } from './errors';
+import { createClaudeMentor, DEFAULT_MODEL } from './mentor';
 
 const context = { files: ['src/index.ts'] };
 const session = createSession('Add pagination');

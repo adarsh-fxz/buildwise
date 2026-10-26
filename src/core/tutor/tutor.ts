@@ -1,6 +1,7 @@
 import { formatProblem } from '../checks/output';
 import type { CheckReport } from '../checks/report';
-import { describeError, type Mentor } from '../mentor/mentor';
+import { describeError } from '../mentor/errors';
+import type { Mentor } from '../mentor/mentor';
 import type { RepositoryContext } from '../mentor/prompts';
 import {
   activeCheckpoint,
