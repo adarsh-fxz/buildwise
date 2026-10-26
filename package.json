@@ -56,13 +56,13 @@
         "category": "BuildWise"
       },
       {
-        "command": "buildwise.setApiKey",
-        "title": "Set API Key",
+        "command": "buildwise.setupProvider",
+        "title": "Set Up Model Provider",
         "category": "BuildWise"
       },
       {
-        "command": "buildwise.clearApiKey",
-        "title": "Remove API Key",
+        "command": "buildwise.removeApiKeys",
+        "title": "Remove Saved API Keys",
         "category": "BuildWise"
       },
       {
@@ -74,6 +74,40 @@
     "configuration": {
       "title": "BuildWise",
       "properties": {
+        "buildwise.provider": {
+          "type": "string",
+          "enum": [
+            "gemini",
+            "groq",
+            "openrouter",
+            "ollama",
+            "anthropic",
+            "custom"
+          ],
+          "enumDescriptions": [
+            "Google Gemini (free tier)",
+            "Groq (free tier)",
+            "OpenRouter (free models)",
+            "Ollama on your computer (free)",
+            "Anthropic Claude (paid)",
+            "Another OpenAI-compatible API"
+          ],
+          "default": "gemini",
+          "markdownDescription": "Where BuildWise sends requests. Run **BuildWise: Set Up Model Provider** to choose a provider, key and model together.",
+          "scope": "application"
+        },
+        "buildwise.model": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The model name, exactly as the provider lists it. Set by **BuildWise: Set Up Model Provider**.",
+          "scope": "application"
+        },
+        "buildwise.baseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The API endpoint for Ollama or another OpenAI-compatible provider. Leave empty for the provider's default.",
+          "scope": "application"
+        },
         "buildwise.context.exclude": {
           "type": "array",
           "items": {
@@ -82,12 +116,6 @@
           "default": [],
           "markdownDescription": "Extra files BuildWise must never share, as `.gitignore`-style patterns. Secrets, dependencies, build output and anything in `.gitignore` are already excluded.",
           "scope": "resource"
-        },
-        "buildwise.model": {
-          "type": "string",
-          "default": "claude-opus-5-5",
-          "markdownDescription": "The Claude model that writes plans and hints, such as `claude-opus-5-5` or `claude-sonnet-5-5`. Uses your API key's pricing and rate limits.",
-          "scope": "application"
         },
         "buildwise.checks.typecheckCommand": {
           "type": [

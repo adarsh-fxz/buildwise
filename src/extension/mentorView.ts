@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { activeCheckpoint, HINT_LEVELS, type Session } from '../core/session/session';
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
-import { loadMentor } from './apiKey';
+import { loadMentor } from './provider';
 import { runChecks } from './checks';
 import { ChangeTracker, EditorTracker, repositoryContext } from './editorContext';
 import { scanFolder } from './workspaceFiles';

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { clearApiKey, setApiKey } from './apiKey';
 import { resetCheckPermissions } from './checks';
 import { MentorViewProvider } from './mentorView';
+import { removeApiKeys, setupProvider } from './provider';
 import { showSharedContext } from './sharedContext';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -12,8 +12,8 @@ export function activate(context: vscode.ExtensionContext): void {
     mentorView,
     vscode.window.registerWebviewViewProvider(MentorViewProvider.viewId, mentorView),
     vscode.commands.registerCommand('buildwise.showSharedContext', () => showSharedContext(output)),
-    vscode.commands.registerCommand('buildwise.setApiKey', () => setApiKey(context.secrets)),
-    vscode.commands.registerCommand('buildwise.clearApiKey', () => clearApiKey(context.secrets)),
+    vscode.commands.registerCommand('buildwise.setupProvider', () => setupProvider(context.secrets)),
+    vscode.commands.registerCommand('buildwise.removeApiKeys', () => removeApiKeys(context.secrets)),
     vscode.commands.registerCommand('buildwise.resetCheckPermissions', () => resetCheckPermissions(context.workspaceState)),
   );
 }
