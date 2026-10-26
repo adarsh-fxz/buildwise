@@ -1,7 +1,7 @@
 // Messages between the extension and the mentor webview. Type-only, so the
 // webview bundle doesn't pull in core code.
 import type { Checkpoint, Phase } from '../core/session/session';
-import type { TranscriptEntry } from '../core/tutor/tutor';
+import type { Activity, TranscriptEntry } from '../core/tutor/tutor';
 
 export interface ViewState {
   /** `idle` means no session yet: show the goal input. */
@@ -10,7 +10,9 @@ export interface ViewState {
   readonly hintsUsed: number;
   readonly hintLevels: number;
   readonly revealUnlocked: boolean;
-  readonly busy: boolean;
+  readonly canExplain: boolean;
+  /** Set while waiting on the model or the learner's tools; actions are disabled. */
+  readonly activity: Activity | undefined;
   readonly transcript: readonly TranscriptEntry[];
 }
 
@@ -22,6 +24,7 @@ export type FromWebview =
   | { readonly type: 'hint' }
   | { readonly type: 'reveal' }
   | { readonly type: 'check' }
+  | { readonly type: 'explain' }
   | { readonly type: 'ask'; readonly question: string }
   | { readonly type: 'end' }
   | { readonly type: 'new' };

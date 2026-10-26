@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
+import type { Problem } from '../core/checks/output';
+import type { CheckReport } from '../core/checks/report';
 import type { RepositoryContext } from '../core/mentor/prompts';
-import type { CheckEvidence } from '../core/session/session';
 import type { FolderScan } from './workspaceFiles';
 
 /**
@@ -61,22 +62,38 @@ export class ChangeTracker implements vscode.Disposable {
 }
 
 /**
- * Error diagnostics VS Code currently reports in the folder. Language servers
- * usually report on open files only, so the scope says how many were checked.
+ * Errors VS Code currently reports in the folder. Language servers usually
+ * report on open files only, so the scope says how many files that covers.
  */
-export function collectEvidence(
-  folder: vscode.WorkspaceFolder,
-  changes: ChangeTracker,
-): { evidence: CheckEvidence; scope: string } {
+export function editorReport(folder: vscode.WorkspaceFolder, changes: ChangeTracker): CheckReport {
   const inFolder = vscode.languages
     .getDiagnostics()
     .filter(([uri]) => vscode.workspace.getWorkspaceFolder(uri)?.uri.toString() === folder.uri.toString());
-  const errors = inFolder
-    .flatMap(([, diagnostics]) => diagnostics)
-    .filter((diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error).length;
+  const problems = inFolder.flatMap(([uri, diagnostics]) =>
+    diagnostics
+      .filter((diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error)
+      .map(
+        (diagnostic): Problem => ({
+          file: vscode.workspace.asRelativePath(uri, false),
+          line: diagnostic.range.start.line + 1,
+          column: diagnostic.range.start.character + 1,
+          code: diagnosticCode(diagnostic),
+          message: diagnostic.message,
+        }),
+      ),
+  );
   const count = inFolder.length;
   return {
-    evidence: { errors, tests: 'not-run', changedFiles: changes.count },
-    scope: `${String(count)} ${count === 1 ? 'file' : 'files'} with diagnostics`,
+    evidence: { errors: problems.length, tests: 'not-run', changedFiles: changes.count },
+    scope: `the editor's error list (${String(count)} ${count === 1 ? 'file' : 'files'})`,
+    problems,
+    notes: [],
   };
+}
+
+/** "TS2345" for TypeScript diagnostics, the raw code or source otherwise. */
+function diagnosticCode({ code, source }: vscode.Diagnostic): string {
+  const value = typeof code === 'object' ? code.value : code;
+  if (value === undefined) return source ?? 'error';
+  return source === 'ts' ? `TS${String(value)}` : String(value);
 }

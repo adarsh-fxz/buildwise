@@ -1,3 +1,5 @@
+import { formatProblem } from '../checks/output';
+import type { CheckReport } from '../checks/report';
 import { describeError, type Mentor } from '../mentor/mentor';
 import type { RepositoryContext } from '../mentor/prompts';
 import {
@@ -20,11 +22,18 @@ export interface TranscriptEntry {
   readonly label?: string;
 }
 
+export type Activity = 'thinking' | 'checking';
+
 export interface TutorState {
   readonly session: Session | undefined;
   readonly transcript: readonly TranscriptEntry[];
-  readonly busy: boolean;
+  /** What the tutor is waiting on, if anything. Actions are ignored meanwhile. */
+  readonly activity: Activity | undefined;
+  /** Whether the last check failed and can be explained. */
+  readonly canExplain: boolean;
 }
+
+const MAX_LISTED_PROBLEMS = 5;
 
 const REJECTION_MESSAGES: Record<RejectionReason, string> = {
   'wrong-phase': 'That is not available right now.',
@@ -44,7 +53,8 @@ export class Tutor {
   private session: Session | undefined;
   private transcript: TranscriptEntry[] = [];
   private hintsForCheckpoint: string[] = [];
-  private busy = false;
+  private lastFailure: CheckReport | undefined;
+  private activity: Activity | undefined;
 
   constructor(
     private readonly mentor: Mentor,
@@ -53,16 +63,22 @@ export class Tutor {
   ) {}
 
   get state(): TutorState {
-    return { session: this.session, transcript: [...this.transcript], busy: this.busy };
+    return {
+      session: this.session,
+      transcript: [...this.transcript],
+      activity: this.activity,
+      canExplain: this.lastFailure !== undefined && this.session?.phase === 'building',
+    };
   }
 
   async start(goal: string): Promise<void> {
-    if (this.busy || (this.session && this.session.phase !== 'complete')) return;
+    if (this.activity || (this.session && this.session.phase !== 'complete')) return;
     const session = createSession(goal);
     this.transcript = [{ from: 'learner', text: session.goal, label: 'Goal' }];
     this.hintsForCheckpoint = [];
+    this.lastFailure = undefined;
 
-    await this.run(async () => {
+    await this.run('thinking', async () => {
       const plan = await this.mentor.plan(session.goal, await this.context());
       const result = transition(session, { type: 'plan-ready', checkpoints: plan });
       if (!result.ok) {
@@ -108,46 +124,77 @@ export class Tutor {
     });
   }
 
-  /** `scope` says what was checked, such as "4 open files". */
-  async check(evidence: CheckEvidence, scope: string): Promise<void> {
-    const before = this.session;
-    await this.step(
-      { type: 'checks-reported', evidence },
-      async (next, context) => {
-        const passed = before?.checkpoints.findIndex((c) => c.status === 'active') ?? -1;
-        if (next.phase === 'independent-check') {
-          const task = await this.mentor.challenge(next, context);
-          return () => {
-            this.hintsForCheckpoint = [];
-            this.notice(`Checkpoint ${String(passed + 1)} passes. That was the last one.`);
-            this.say('mentor', task, 'Independent check');
-            this.notice('Do this one without help: hints and questions are off. Check your work when it is done.');
-          };
+  /** Explaining a failure is help, so it counts as a question. */
+  async explain(): Promise<void> {
+    const failure = this.lastFailure;
+    if (!failure) return;
+    await this.step({ type: 'question-asked' }, async (next, context) => {
+      const text = await this.mentor.explain(next, failure, context);
+      return () => {
+        this.say('mentor', text, 'About these errors');
+      };
+    });
+  }
+
+  /** `collect` runs the learner's tools; it may take a while. */
+  async check(collect: () => Promise<CheckReport>): Promise<void> {
+    const phase = this.session?.phase;
+    if (this.activity || (phase !== 'building' && phase !== 'independent-check')) return;
+
+    await this.run('checking', async () => {
+      const report = await collect();
+      const before = this.session;
+      if (!before) return;
+      const result = transition(before, { type: 'checks-reported', evidence: report.evidence });
+      if (!result.ok) {
+        if (result.reason === 'checks-failing') {
+          this.lastFailure = report;
+          this.say('buildwise', describeFailure(report), 'Check');
+        } else {
+          this.notice(REJECTION_MESSAGES[result.reason]);
         }
-        return () => {
-          this.hintsForCheckpoint = [];
-          if (next.phase === 'complete') {
-            this.notice('The independent check passes.');
-            this.finish(next);
-          } else {
-            const upcoming = activeCheckpoint(next);
-            this.notice(`Checkpoint ${String(passed + 1)} passes. Next: ${upcoming?.title ?? ''}.`);
-          }
-        };
-      },
-      (reason) =>
-        reason === 'checks-failing' ? `Not passing yet: ${describeEvidence(evidence)} (checked ${scope}).` : undefined,
-    );
+        return;
+      }
+
+      const next = result.session;
+      const passed = before.checkpoints.findIndex((c) => c.status === 'active');
+      const notes = report.notes.length ? ` ${report.notes.join(' ')}` : '';
+      if (next.phase === 'independent-check') {
+        this.activity = 'thinking';
+        this.emit();
+        const task = await this.mentor.challenge(next, await this.context());
+        this.commitPass(next);
+        this.notice(`Checkpoint ${String(passed + 1)} passes, checked with ${report.scope}. That was the last one.${notes}`);
+        this.say('mentor', task, 'Independent check');
+        this.notice('Do this one without help: hints and questions are off. Check your work when it is done.');
+      } else if (next.phase === 'complete') {
+        this.commitPass(next);
+        this.notice(`The independent check passes, checked with ${report.scope}.${notes}`);
+        this.finish(next);
+      } else {
+        this.commitPass(next);
+        const upcoming = activeCheckpoint(next);
+        this.notice(
+          `Checkpoint ${String(passed + 1)} passes, checked with ${report.scope}. Next: ${upcoming?.title ?? ''}.${notes}`,
+        );
+      }
+    });
   }
 
   end(): void {
-    if (this.busy || !this.session) return;
+    if (this.activity || !this.session) return;
     const result = transition(this.session, { type: 'ended' });
     if (result.ok) {
       this.session = result.session;
       this.finish(result.session);
       this.emit();
     }
+  }
+
+  private commitPass(next: Session): void {
+    this.session = next;
+    this.hintsForCheckpoint = [];
+    this.lastFailure = undefined;
   }
 
   private finish(session: Session): void {
@@ -161,31 +208,30 @@ export class Tutor {
   private async step(
     event: SessionEvent,
     work: (next: Session, context: RepositoryContext) => Promise<() => void>,
-    explain: (reason: RejectionReason) => string | undefined = () => undefined,
   ): Promise<void> {
-    if (this.busy || !this.session) return;
+    if (this.activity || !this.session) return;
     const result = transition(this.session, event);
     if (!result.ok) {
-      this.notice(explain(result.reason) ?? REJECTION_MESSAGES[result.reason]);
+      this.notice(REJECTION_MESSAGES[result.reason]);
       this.emit();
       return;
     }
-    await this.run(async () => {
+    await this.run('thinking', async () => {
       const commit = await work(result.session, await this.context());
       this.session = result.session;
       commit();
     });
   }
 
-  private async run(work: () => Promise<void>): Promise<void> {
-    this.busy = true;
+  private async run(activity: Activity, work: () => Promise<void>): Promise<void> {
+    this.activity = activity;
     this.emit();
     try {
       await work();
     } catch (error) {
       this.notice(describeError(error));
     } finally {
-      this.busy = false;
+      this.activity = undefined;
       this.emit();
     }
   }
@@ -201,6 +247,16 @@ export class Tutor {
   private emit(): void {
     this.onChange(this.state);
   }
+}
+
+export function describeFailure(report: CheckReport): string {
+  const lines = [`Not passing yet: ${describeEvidence(report.evidence)}, checked with ${report.scope}.`];
+  lines.push(...report.problems.slice(0, MAX_LISTED_PROBLEMS).map(formatProblem));
+  if (report.problems.length > MAX_LISTED_PROBLEMS) {
+    lines.push(`…and ${String(report.problems.length - MAX_LISTED_PROBLEMS)} more`);
+  }
+  lines.push(...report.notes);
+  return lines.join('\n');
 }
 
 export function describeEvidence({ errors, tests, changedFiles }: CheckEvidence): string {

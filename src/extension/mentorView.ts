@@ -3,7 +3,7 @@ import { activeCheckpoint, HINT_LEVELS, type Session } from '../core/session/ses
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
 import { loadMentor } from './apiKey';
-import { ChangeTracker, collectEvidence, EditorTracker, repositoryContext } from './editorContext';
+import { ChangeTracker, EditorTracker, editorReport, repositoryContext } from './editorContext';
 import { scanFolder } from './workspaceFiles';
 
 interface ActiveSession {
@@ -63,6 +63,9 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
       case 'check':
         await this.check();
         return;
+      case 'explain':
+        await tutor?.explain();
+        return;
       case 'end':
         tutor?.end();
         return;
@@ -106,8 +109,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     if (!this.active) return;
     const { tutor, folder, changes } = this.active;
     const before = position(tutor.state.session);
-    const { evidence, scope } = collectEvidence(folder, changes);
-    await tutor.check(evidence, scope);
+    await tutor.check(() => Promise.resolve(editorReport(folder, changes)));
     // Work for the next checkpoint starts from a clean slate.
     if (position(tutor.state.session) !== before) changes.reset();
   }
@@ -152,7 +154,8 @@ function toViewState(state: TutorState | undefined): ViewState {
     hintsUsed: current?.hintsUsed ?? 0,
     hintLevels: HINT_LEVELS,
     revealUnlocked: current !== undefined && current.hintsUsed >= HINT_LEVELS && !current.solutionRevealed,
-    busy: state?.busy ?? false,
+    canExplain: state?.canExplain ?? false,
+    activity: state?.activity,
     transcript: state?.transcript ?? [],
   };
 }

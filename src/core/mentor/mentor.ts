@@ -1,10 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
+import type { CheckReport } from '../checks/report';
 import type { CheckpointPlan, Session } from '../session/session';
 import {
   answerPrompt,
   challengePrompt,
+  explainPrompt,
   hintPrompt,
   planPrompt,
   renderRepository,
@@ -21,6 +23,8 @@ export interface Mentor {
   answer(session: Session, question: string, context: RepositoryContext): Promise<string>;
   /** A related task for the independent check. */
   challenge(session: Session, context: RepositoryContext): Promise<string>;
+  /** What a failed check means, without the fix. */
+  explain(session: Session, report: CheckReport, context: RepositoryContext): Promise<string>;
 }
 
 export class MentorError extends Error {
@@ -91,6 +95,7 @@ export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MO
     solution: (session, context) => text(solutionPrompt(session), context, 'medium'),
     answer: (session, question, context) => text(answerPrompt(session, question), context, 'low'),
     challenge: (session, context) => text(challengePrompt(session), context, 'low'),
+    explain: (session, report, context) => text(explainPrompt(session, report), context, 'low'),
   };
 }
 

@@ -30,6 +30,8 @@ function render(state: ViewState): void {
   renderedEntries = state.transcript.length;
 }
 
+const ACTIVITY_TEXT = { thinking: 'Thinking…', checking: 'Running your checks…' } as const;
+
 function idleView(state: ViewState): Node[] {
   const goal = el('textarea', { id: 'goal', rows: 3, placeholder: 'Add pagination to the posts page' });
   goal.value = drafts.goal;
@@ -48,7 +50,7 @@ function idleView(state: ViewState): Node[] {
       el('h2', { text: 'What do you want to build?' }),
       el('p', { text: 'Describe a feature in this project. BuildWise plans it with you, and you write the code.' }),
       goal,
-      button(state.busy ? 'Planning…' : 'Start session', start, { primary: true, disabled: state.busy }),
+      button(state.activity ? 'Planning…' : 'Start session', start, { primary: true, disabled: busy(state) }),
     ]),
     ...(state.transcript.length ? [transcriptView(state)] : []),
   ];
@@ -56,7 +58,7 @@ function idleView(state: ViewState): Node[] {
 
 function sessionView(state: ViewState): Node[] {
   const nodes: Node[] = [checkpointList(state), transcriptView(state)];
-  if (state.busy) nodes.push(el('p', { className: 'status', text: 'Thinking…' }));
+  if (state.activity) nodes.push(el('p', { className: 'status', text: ACTIVITY_TEXT[state.activity] }));
   nodes.push(state.phase === 'complete' ? completeActions() : sessionActions(state));
   return nodes;
 }
@@ -93,30 +95,33 @@ function transcriptView(state: ViewState): HTMLElement {
 
 function sessionActions(state: ViewState): HTMLElement {
   const building = state.phase === 'building';
-  const actions: Node[] = [button('Check my work', send({ type: 'check' }), { primary: true, disabled: state.busy })];
+  const actions: Node[] = [button('Check my work', send({ type: 'check' }), { primary: true, disabled: busy(state) })];
 
   if (building) {
     const nextHint = state.hintsUsed + 1;
     const hintLabel = nextHint > state.hintLevels ? 'No hints left' : `Hint ${String(nextHint)} of ${String(state.hintLevels)}`;
     actions.push(
-      button(hintLabel, send({ type: 'hint' }), { disabled: state.busy || nextHint > state.hintLevels }),
+      button(hintLabel, send({ type: 'hint' }), { disabled: busy(state) || nextHint > state.hintLevels }),
     );
     if (state.revealUnlocked) {
-      actions.push(button('Reveal solution', send({ type: 'reveal' }), { disabled: state.busy }));
+      actions.push(button('Reveal solution', send({ type: 'reveal' }), { disabled: busy(state) }));
+    }
+    if (state.canExplain) {
+      actions.push(button('Explain the errors', send({ type: 'explain' }), { disabled: busy(state) }));
     }
   }
 
   const footer: Node[] = [el('div', { className: 'actions' }, actions)];
   if (building) footer.push(askForm(state));
   else footer.push(el('p', { className: 'note', text: 'Hints and questions are off for the independent check.' }));
-  footer.push(button('End session', send({ type: 'end' }), { link: true, disabled: state.busy }));
+  footer.push(button('End session', send({ type: 'end' }), { link: true, disabled: busy(state) }));
   return el('footer', {}, footer);
 }
 
 function askForm(state: ViewState): HTMLElement {
   const input = el('input', { id: 'question', type: 'text', placeholder: 'Ask a question' });
   input.value = drafts.question;
-  input.disabled = state.busy;
+  input.disabled = busy(state);
   input.addEventListener('input', () => (drafts.question = input.value));
   const form = el('form', { className: 'ask' }, [input]);
   form.addEventListener('submit', (event) => {
@@ -130,6 +135,10 @@ function askForm(state: ViewState): HTMLElement {
 
 function completeActions(): HTMLElement {
   return el('footer', {}, [button('New session', send({ type: 'new' }), { primary: true })]);
+}
+
+function busy(state: ViewState): boolean {
+  return state.activity !== undefined;
 }
 
 /** Paragraphs, ``` code blocks and `inline code`, all as text nodes. */
