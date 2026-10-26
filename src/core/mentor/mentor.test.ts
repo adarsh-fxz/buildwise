@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { createSession } from '../session/session';
-import { createClaudeMentor, DEFAULT_MODEL, MentorError } from './mentor';
+import { createClaudeMentor, DEFAULT_MODEL, describeError, MentorError } from './mentor';
 
 const context = { files: ['src/index.ts'] };
 const session = createSession('Add pagination');
@@ -73,5 +73,21 @@ describe('createClaudeMentor', () => {
       new MentorError('empty'),
     );
     await expect(createClaudeMentor(empty.client).plan('goal', context)).rejects.toThrow(new MentorError('empty'));
+  });
+});
+
+describe('challenge', () => {
+  it('asks for a follow-up task at low effort', async () => {
+    const { client, create } = fakeClient(textResponse('Add a page size selector.'));
+    await expect(createClaudeMentor(client).challenge(session, context)).resolves.toBe('Add a page size selector.');
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ output_config: { effort: 'low' } }));
+  });
+});
+
+describe('describeError', () => {
+  it('explains mentor errors and passes other messages through', () => {
+    expect(describeError(new MentorError('refused'))).toBe('The model declined to answer that. Try rephrasing.');
+    expect(describeError(new Error('socket hang up'))).toBe('socket hang up');
+    expect(describeError('odd')).toBe('odd');
   });
 });

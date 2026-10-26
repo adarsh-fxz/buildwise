@@ -63,6 +63,12 @@ export function solutionPrompt(session: Session): string {
 The learner used every hint and chose to reveal the solution. Show the code for the current checkpoint only, and explain each decision in a sentence. End by asking them to explain one line of it back to you.`;
 }
 
+export function challengePrompt(session: Session): string {
+  return `${describeSession(session)}
+
+Every checkpoint passes. Write one small follow-up task in this codebase that uses the same concepts, for the learner to complete without any help. Say what to build and how they will know it works, in under 80 words. Do not write code.`;
+}
+
 export function answerPrompt(session: Session, question: string): string {
   return `${describeSession(session)}
 
