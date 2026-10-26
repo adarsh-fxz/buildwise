@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { clearApiKey, setApiKey } from './apiKey';
 import { showSharedContext } from './sharedContext';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -6,6 +7,8 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     output,
     vscode.commands.registerCommand('buildwise.showSharedContext', () => showSharedContext(output)),
+    vscode.commands.registerCommand('buildwise.setApiKey', () => setApiKey(context.secrets)),
+    vscode.commands.registerCommand('buildwise.clearApiKey', () => clearApiKey(context.secrets)),
   );
 }
 

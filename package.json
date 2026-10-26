@@ -26,6 +26,16 @@
         "command": "buildwise.showSharedContext",
         "title": "Show Shared Context",
         "category": "BuildWise"
+      },
+      {
+        "command": "buildwise.setApiKey",
+        "title": "Set API Key",
+        "category": "BuildWise"
+      },
+      {
+        "command": "buildwise.clearApiKey",
+        "title": "Remove API Key",
+        "category": "BuildWise"
       }
     ],
     "configuration": {
@@ -39,6 +49,12 @@
           "default": [],
           "markdownDescription": "Extra files BuildWise must never share, as `.gitignore`-style patterns. Secrets, dependencies, build output and anything in `.gitignore` are already excluded.",
           "scope": "resource"
+        },
+        "buildwise.model": {
+          "type": "string",
+          "default": "claude-opus-5-5",
+          "markdownDescription": "The Claude model that writes plans and hints, such as `claude-opus-5-5` or `claude-sonnet-5-5`. Uses your API key's pricing and rate limits.",
+          "scope": "application"
         }
       }
     }
