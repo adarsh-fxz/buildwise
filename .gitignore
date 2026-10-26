@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+*.vsix
+.DS_Store
+
+# Private planning notes (YC drafts, interview notes). Not for the repo.
+notes/
