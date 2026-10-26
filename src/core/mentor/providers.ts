@@ -1,0 +1,100 @@
+import { DEFAULT_MODEL } from './mentor';
+import type { ContextLimits } from './prompts';
+
+export type ProviderId = 'gemini' | 'groq' | 'openrouter' | 'ollama' | 'anthropic' | 'custom';
+
+export interface Provider {
+  readonly id: ProviderId;
+  readonly label: string;
+  /** One line shown when choosing a provider. */
+  readonly detail: string;
+  readonly free: boolean;
+  /** OpenAI-compatible endpoint. Unset for Anthropic, which uses its own SDK, and for custom. */
+  readonly baseURL?: string;
+  readonly keyUrl?: string;
+  readonly needsKey: boolean;
+  /** Preselected when the provider's live model list includes it. Lists change often. */
+  readonly suggestedModel?: string;
+  readonly limits?: ContextLimits;
+  readonly maxOutputTokens?: number;
+  /** Filters the provider's model list down to models that can chat. */
+  readonly isChatModel?: (id: string) => boolean;
+}
+
+export const PROVIDERS: readonly Provider[] = [
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    detail: 'Free tier with a Google account and no card. Daily limits apply.',
+    free: true,
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    keyUrl: 'https://aistudio.google.com/apikey',
+    needsKey: true,
+    suggestedModel: 'gemini-3.8-flash',
+    isChatModel: (id) => /^(gemini|gemma)/.test(id) && !/(embedding|image|tts|audio|live)/.test(id),
+  },
+  {
+    id: 'groq',
+    label: 'Groq',
+    detail: 'Free tier with fast open models. Small per-minute limits, so BuildWise sends less context.',
+    free: true,
+    baseURL: 'https://api.groq.com/openai/v1',
+    keyUrl: 'https://console.groq.com/keys',
+    needsKey: true,
+    // The free tier allows about 8,000 tokens a minute, input and output together.
+    limits: { maxFiles: 80, maxOpenFileChars: 6000 },
+    maxOutputTokens: 3000,
+    isChatModel: (id) => !/(whisper|tts|orpheus|guard|compound)/.test(id),
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    detail: 'Models marked ":free" cost nothing, with about 50 requests a day.',
+    free: true,
+    baseURL: 'https://openrouter.ai/api/v1',
+    keyUrl: 'https://openrouter.ai/keys',
+    needsKey: true,
+    isChatModel: (id) => id.endsWith(':free') && !/(safety|guard)/.test(id),
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama',
+    detail: 'Runs models on your own computer: free and private, but needs a capable machine.',
+    free: true,
+    baseURL: 'http://localhost:11434/v1',
+    needsKey: false,
+    // Local models often run with a small context window.
+    limits: { maxFiles: 100, maxOpenFileChars: 8000 },
+    isChatModel: (id) => !/embed/.test(id),
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic Claude',
+    detail: 'Paid per use.',
+    free: false,
+    keyUrl: 'https://console.anthropic.com',
+    needsKey: true,
+    suggestedModel: DEFAULT_MODEL,
+    isChatModel: (id) => id.startsWith('claude'),
+  },
+  {
+    id: 'custom',
+    label: 'Other OpenAI-compatible API',
+    detail: 'Any provider with a Chat Completions endpoint, such as Mistral or Cerebras.',
+    free: false,
+    needsKey: true,
+  },
+];
+
+export function findProvider(id: string): Provider | undefined {
+  return PROVIDERS.find((provider) => provider.id === id);
+}
+
+/** Chat models from a provider's list, sorted, with the suggested model first. */
+export function chatModels(provider: Provider, ids: readonly string[]): string[] {
+  // Gemini lists models as "models/<id>" but expects the bare id.
+  const names = [...new Set(ids.map((id) => id.replace(/^models\//, '')))];
+  const usable = names.filter((id) => provider.isChatModel?.(id) ?? true).sort();
+  const suggested = provider.suggestedModel;
+  return suggested && usable.includes(suggested) ? [suggested, ...usable.filter((id) => id !== suggested)] : usable;
+}
