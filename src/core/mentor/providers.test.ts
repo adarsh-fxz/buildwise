@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatModels, findProvider, PROVIDERS } from './providers';
+import { chatModels, findProvider, PROVIDERS, resolveReasoningEffort } from './providers';
 
 const provider = (id: string) => {
   const found = findProvider(id);
@@ -17,6 +17,24 @@ describe('PROVIDERS', () => {
   it('lists the free providers first', () => {
     const firstPaid = PROVIDERS.findIndex((p) => !p.free);
     expect(PROVIDERS.slice(firstPaid).every((p) => !p.free)).toBe(true);
+  });
+});
+
+describe('resolveReasoningEffort', () => {
+  it("uses the provider's preset for auto, and nothing where there is none", () => {
+    expect(resolveReasoningEffort(provider('gemini'), 'auto')).toBe('low');
+    expect(resolveReasoningEffort(provider('groq'), 'auto')).toBeUndefined();
+    expect(resolveReasoningEffort(provider('gemini'), undefined)).toBe('low');
+  });
+
+  it("sends the learner's choice", () => {
+    expect(resolveReasoningEffort(provider('gemini'), 'high')).toBe('high');
+    expect(resolveReasoningEffort(provider('ollama'), 'none')).toBe('none');
+  });
+
+  it('ignores unknown values and never applies to Claude', () => {
+    expect(resolveReasoningEffort(provider('groq'), 'turbo')).toBeUndefined();
+    expect(resolveReasoningEffort(provider('anthropic'), 'high')).toBeUndefined();
   });
 });
 

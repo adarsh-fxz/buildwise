@@ -5,7 +5,7 @@ import { createCompatibleMentor } from '../core/mentor/compatible';
 import { describeError } from '../core/mentor/errors';
 import { seconds } from '../core/mentor/instrument';
 import { createClaudeMentor, type Mentor } from '../core/mentor/mentor';
-import { chatModels, findProvider, type Provider, PROVIDERS } from '../core/mentor/providers';
+import { chatModels, findProvider, type Provider, PROVIDERS, resolveReasoningEffort } from '../core/mentor/providers';
 
 // Keys live in VS Code's SecretStorage (the OS keychain), one per provider.
 const secretKey = (provider: Provider) => `buildwise.apiKey.${provider.id}`;
@@ -84,11 +84,12 @@ function createMentor({ provider, model, baseURL, apiKey }: Configured): Mentor 
     return createClaudeMentor(new Anthropic({ apiKey, timeout, maxRetries: MAX_RETRIES }), model);
   }
   const client = new OpenAI({ apiKey: apiKey ?? 'not-needed', baseURL, timeout, maxRetries: MAX_RETRIES });
+  const effort = reasoningEffort(provider);
   return createCompatibleMentor(client, {
     model,
     ...(provider.limits && { limits: provider.limits }),
     ...(provider.maxOutputTokens !== undefined && { maxOutputTokens: provider.maxOutputTokens }),
-    ...(provider.reasoningEffort && { reasoningEffort: provider.reasoningEffort }),
+    ...(effort && { reasoningEffort: effort }),
   });
 }
 
@@ -103,7 +104,10 @@ export async function testConnection(secrets: vscode.SecretStorage, log: (line: 
     return;
   }
   const { provider, model, baseURL, apiKey } = configured;
-  log(`Testing ${model} from ${provider.label}${baseURL ? ` at ${baseURL}` : ''}.`);
+  const effort = reasoningEffort(provider);
+  log(
+    `Testing ${model} from ${provider.label}${baseURL ? ` at ${baseURL}` : ''}, reasoning effort ${effort ?? 'not sent'}.`,
+  );
 
   const step = async (name: string, request: () => Promise<unknown>) => {
     const started = Date.now();
@@ -131,12 +135,16 @@ export async function testConnection(secrets: vscode.SecretStorage, log: (line: 
     await new OpenAI({ apiKey: apiKey ?? 'not-needed', baseURL, ...options }).chat.completions.create({
       model,
       messages: [{ role: 'user', content: 'Reply with the word OK.' }],
-      ...(provider.reasoningEffort && { reasoning_effort: provider.reasoningEffort }),
+      ...(effort && { reasoning_effort: effort }),
     });
   });
   const summary =
     listed && replied ? 'The model answered. Details are in Output → BuildWise.' : 'The test found a problem. Details are in Output → BuildWise.';
   void vscode.window.showInformationMessage(summary);
+}
+
+function reasoningEffort(provider: Provider) {
+  return resolveReasoningEffort(provider, vscode.workspace.getConfiguration('buildwise').get<string>('reasoningEffort'));
 }
 
 async function readConfigured(secrets: vscode.SecretStorage): Promise<Configured | undefined> {

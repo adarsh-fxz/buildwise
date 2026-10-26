@@ -120,6 +120,28 @@
           "markdownDescription": "The API endpoint for Ollama or another OpenAI-compatible provider. Leave empty for the provider's default.",
           "scope": "application"
         },
+        "buildwise.reasoningEffort": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "enumDescriptions": [
+            "BuildWise chooses: low for Gemini, the provider's default elsewhere.",
+            "No thinking. Not accepted by every model; Gemini 3 models can't turn thinking off.",
+            "The least thinking the model allows.",
+            "Brief thinking: quick hints.",
+            "More thinking: slower, sometimes better plans.",
+            "The most thinking: slowest. Free tiers may time out."
+          ],
+          "default": "auto",
+          "markdownDescription": "How long a thinking model may think before answering. Applies to Gemini, Groq, OpenRouter, Ollama and other OpenAI-compatible providers; not every model accepts every value. Claude ignores this: BuildWise sets its effort per request.",
+          "scope": "application"
+        },
         "buildwise.context.exclude": {
           "type": "array",
           "items": {

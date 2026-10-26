@@ -102,6 +102,23 @@ export const PROVIDERS: readonly Provider[] = [
   },
 ];
 
+export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'] as const;
+export type ReasoningEffortSetting = 'auto' | (typeof REASONING_EFFORTS)[number];
+
+/**
+ * The reasoning_effort to send: the learner's choice, or the provider's
+ * preset for "auto". Undefined means send nothing. Claude sets effort per
+ * request instead, so the setting does not apply to it.
+ */
+export function resolveReasoningEffort(
+  provider: Provider,
+  setting: string | undefined,
+): (typeof REASONING_EFFORTS)[number] | undefined {
+  if (provider.id === 'anthropic') return undefined;
+  const chosen = REASONING_EFFORTS.find((effort) => effort === setting);
+  return chosen ?? provider.reasoningEffort;
+}
+
 export function findProvider(id: string): Provider | undefined {
   return PROVIDERS.find((provider) => provider.id === id);
 }

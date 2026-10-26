@@ -77,6 +77,8 @@ BuildWise works with any of these. Run **BuildWise: Set Up Model Provider** to s
 | [Anthropic Claude](https://console.anthropic.com) | Paid | |
 | Other | Varies | Any OpenAI-compatible endpoint, such as Mistral or Cerebras. |
 
+Thinking models can be slow. The `buildwise.reasoningEffort` setting controls how long they think: `auto` (the default) sends `low` to Gemini and nothing to other providers, or choose `none` to `high`. Claude ignores it.
+
 Free tiers change often and have daily limits. Smaller models give weaker hints and may struggle with the plan format; BuildWise retries once and tells you if it fails. Read your provider's terms before using a free tier with code you can't share: some free tiers, including Gemini's, may use what you send to improve their models.
 
 ## Privacy
