@@ -44,6 +44,7 @@ describe('buildReport', () => {
     evidence: { errors: 1, tests: 'not-run', changedFiles: 2 },
     scope: "the editor's error list (1 file)",
     problems: [{ file: 'src/open.ts', line: 1, code: 'TS2304', message: 'From the editor.' }],
+    files: [{ path: 'src/open.ts', content: 'export {}' }],
     notes: [],
   };
   const run = (command: string, exitCode: number | null, output = '', timedOut = false): RunResult => ({
@@ -61,6 +62,7 @@ describe('buildReport', () => {
       evidence: { errors: 0, tests: 'passed', changedFiles: 2 },
       scope: 'tsc and npm test',
       problems: [],
+      files: editor.files,
       notes: [],
     });
   });

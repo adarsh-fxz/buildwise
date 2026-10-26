@@ -27,6 +27,7 @@ export function instrument(mentor: Mentor, log: (line: string) => void, now: () 
     answer: (session, question, context) => timed('answer', () => mentor.answer(session, question, context)),
     challenge: (session, context) => timed('independent check', () => mentor.challenge(session, context)),
     explain: (session, report, context) => timed('explain', () => mentor.explain(session, report, context)),
+    review: (session, task, files, context) => timed('review', () => mentor.review(session, task, files, context)),
   };
 }
 

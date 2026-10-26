@@ -85,6 +85,17 @@ describe('challenge', () => {
   });
 });
 
+describe('review', () => {
+  it('returns the structured verdict at medium effort', async () => {
+    const { client, parse } = fakeClient({ stop_reason: 'end_turn', parsed_output: { passes: true, feedback: 'Works.' } });
+    await expect(
+      createClaudeMentor(client).review(session, 'Define isEven', [{ path: 'a.ts', content: 'x' }], context),
+    ).resolves.toEqual({ passes: true, feedback: 'Works.' });
+    const params = parse.mock.calls[0]?.[0] as { output_config: { effort: string } };
+    expect(params.output_config.effort).toBe('medium');
+  });
+});
+
 describe('describeError', () => {
   it('explains mentor errors and passes other messages through', () => {
     expect(describeError(new MentorError('refused'))).toBe('The model declined to answer that. Try rephrasing.');

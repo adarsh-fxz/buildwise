@@ -11,7 +11,7 @@ import {
   transition,
 } from './session';
 
-const PASSING: CheckEvidence = { errors: 0, tests: 'passed', changedFiles: 1 };
+const PASSING: CheckEvidence = { errors: 0, tests: 'passed', changedFiles: 1, review: 'passed' };
 const plan = (count: number) =>
   Array.from({ length: count }, (_, i) => ({ title: `Step ${String(i + 1)}`, description: `Do step ${String(i + 1)}` }));
 
@@ -113,16 +113,18 @@ describe('questions', () => {
 
 describe('passing checkpoints', () => {
   it.each<[string, CheckEvidence]>([
-    ['compile errors', { errors: 1, tests: 'passed', changedFiles: 1 }],
-    ['failing tests', { errors: 0, tests: 'failed', changedFiles: 1 }],
-    ['no changed files', { errors: 0, tests: 'passed', changedFiles: 0 }],
+    ['compile errors', { errors: 1, tests: 'passed', changedFiles: 1, review: 'passed' }],
+    ['failing tests', { errors: 0, tests: 'failed', changedFiles: 1, review: 'passed' }],
+    ['no changed files', { errors: 0, tests: 'passed', changedFiles: 0, review: 'passed' }],
+    ['code that compiles but does not do the step', { errors: 0, tests: 'passed', changedFiles: 1, review: 'failed' }],
+    ['no review', { errors: 0, tests: 'passed', changedFiles: 1, review: 'not-run' }],
   ])('refuses to pass with %s', (_, evidence) => {
     const session = building();
     expect(rejection(session, checks(evidence))).toBe('checks-failing');
   });
 
   it('passes with a clean compile when there are no tests to run', () => {
-    const session = apply(building(), checks({ errors: 0, tests: 'not-run', changedFiles: 1 }));
+    const session = apply(building(), checks({ errors: 0, tests: 'not-run', changedFiles: 1, review: 'passed' }));
     expect(activeCheckpoint(session)?.title).toBe('Step 2');
   });
 
@@ -143,7 +145,7 @@ describe('independent check', () => {
   });
 
   it('completes the session when checks pass', () => {
-    expect(rejection(checking(), checks({ errors: 2, tests: 'not-run', changedFiles: 1 }))).toBe('checks-failing');
+    expect(rejection(checking(), checks({ errors: 2, tests: 'not-run', changedFiles: 1, review: 'passed' }))).toBe('checks-failing');
     const session = apply(checking(), checks());
     expect(session).toMatchObject({ phase: 'complete', independentCheckPassed: true });
   });

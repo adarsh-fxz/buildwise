@@ -1,7 +1,7 @@
 import type OpenAI from 'openai';
 import { describe, expect, it, vi } from 'vitest';
 import { createSession } from '../session/session';
-import { createCompatibleMentor, parsePlan, stripReasoning } from './compatible';
+import { createCompatibleMentor, parsePlan, parseReview, stripReasoning } from './compatible';
 import { MentorError } from './errors';
 
 const context = { files: ['src/index.ts'], openFile: { path: 'src/index.ts', content: 'x'.repeat(100) } };
@@ -79,6 +79,28 @@ describe('createCompatibleMentor', () => {
     await expect(createCompatibleMentor(client, { model: 'm' }).challenge(session, context)).rejects.toThrow(
       new MentorError('empty'),
     );
+  });
+});
+
+describe('review', () => {
+  const files = [{ path: 'src/lib/utils.ts', content: 'export function isEven() {}' }];
+
+  it('reads the verdict, retrying once on bad JSON', async () => {
+    const { client, create } = fakeClient(reply('looks fine'), reply('{"passes": false, "feedback": "It never returns."}'));
+    await expect(createCompatibleMentor(client, { model: 'm' }).review(session, 'Define isEven', files, context)).resolves.toEqual({
+      passes: false,
+      feedback: 'It never returns.',
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+    const params = create.mock.calls[0]?.[0] as OpenAI.ChatCompletionCreateParamsNonStreaming;
+    expect(params.messages[1]?.content).toContain('export function isEven() {}');
+  });
+});
+
+describe('parseReview', () => {
+  it('needs both fields', () => {
+    expect(parseReview('{"passes": true}')).toBeUndefined();
+    expect(parseReview('```json\n{"passes": true, "feedback": "Works."}\n```')).toEqual({ passes: true, feedback: 'Works.' });
   });
 });
 

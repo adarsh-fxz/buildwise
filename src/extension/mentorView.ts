@@ -1,17 +1,18 @@
 import * as vscode from 'vscode';
 import { instrument, seconds } from '../core/mentor/instrument';
-import { activeCheckpoint, HINT_LEVELS, type Session } from '../core/session/session';
+import { activeCheckpoint, HINT_LEVELS } from '../core/session/session';
 import { Tutor, type TutorState } from '../core/tutor/tutor';
 import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
 import { describeConfigured, loadMentor, setupProvider } from './provider';
 import { runChecks } from './checks';
-import { ChangeTracker, EditorTracker, repositoryContext } from './editorContext';
-import { scanFolder } from './workspaceFiles';
+import { ChangeTracker, EditorTracker, readSavedFiles, repositoryContext } from './editorContext';
+import { type FolderScan, scanFolder } from './workspaceFiles';
 import { isWorkspaceRelative } from '../webview/fileRef';
 
 interface ActiveSession {
   readonly tutor: Tutor;
   readonly folder: vscode.WorkspaceFolder;
+  readonly scan: FolderScan;
   readonly changes: ChangeTracker;
 }
 
@@ -140,7 +141,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
       const tutor = new Tutor(mentor, repositoryContext(scan, this.editors), (state) => {
         this.post(state);
       });
-      this.active = { tutor, folder, changes };
+      this.active = { tutor, folder, scan, changes };
       await tutor.start(goal);
     } finally {
       this.starting = false;
@@ -149,16 +150,14 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
 
   private async check(): Promise<void> {
     if (!this.active) return;
-    const { tutor, folder, changes } = this.active;
-    const before = position(tutor.state.session);
+    const { tutor, folder, scan, changes } = this.active;
     await tutor.check(async () => {
       const started = Date.now();
-      const report = await runChecks(folder, changes, this.workspaceState);
+      const files = await readSavedFiles(changes, scan);
+      const report = await runChecks(folder, changes, this.workspaceState, files);
       this.log(`check: ${report.scope}, ${String(report.evidence.errors)} errors, tests ${report.evidence.tests}, in ${seconds(Date.now() - started)}`);
       return report;
     });
-    // Work for the next checkpoint starts from a clean slate.
-    if (position(tutor.state.session) !== before) changes.reset();
   }
 
   /** Opens a file the mentor or a check mentioned. The path comes from model output, so it is checked first. */
@@ -210,12 +209,6 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
 </body>
 </html>`;
   }
-}
-
-/** Identifies where a session is, so the view can tell when a check moved it on. */
-function position(session: Session | undefined): string {
-  if (!session) return 'none';
-  return `${session.phase}:${String(session.checkpoints.findIndex((c) => c.status === 'active'))}`;
 }
 
 function toViewState(state: TutorState | undefined, model: string | undefined, needsFolder: boolean): ViewState {

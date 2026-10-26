@@ -1,20 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CheckReport } from '../checks/report';
 import type { Mentor } from '../mentor/mentor';
-import { activeCheckpoint, type CheckEvidence } from '../session/session';
+import { activeCheckpoint, type ToolEvidence } from '../session/session';
 import { describeEvidence, describeFailure, Tutor } from './tutor';
 
-const PASSING: CheckEvidence = { errors: 0, tests: 'not-run', changedFiles: 1 };
-const FAILING: CheckEvidence = { errors: 2, tests: 'not-run', changedFiles: 1 };
+const PASSING: ToolEvidence = { errors: 0, tests: 'not-run', changedFiles: 1 };
+const FAILING: ToolEvidence = { errors: 2, tests: 'not-run', changedFiles: 1 };
 
-const report = (evidence: CheckEvidence, extra: Partial<CheckReport> = {}): CheckReport => ({
+const report = (evidence: ToolEvidence, extra: Partial<CheckReport> = {}): CheckReport => ({
   evidence,
   scope: 'tsc',
   problems: [],
+  files: [{ path: 'src/lib/utils.ts', content: 'export const isEven = (n: number) => n % 2 === 0;' }],
   notes: [],
   ...extra,
 });
-const collect = (evidence: CheckEvidence, extra: Partial<CheckReport> = {}) => () =>
+const collect = (evidence: ToolEvidence, extra: Partial<CheckReport> = {}) => () =>
   Promise.resolve(report(evidence, extra));
 
 function fakeMentor(overrides: Partial<Mentor> = {}): Mentor {
@@ -28,6 +29,7 @@ function fakeMentor(overrides: Partial<Mentor> = {}): Mentor {
     answer: vi.fn().mockResolvedValue('an answer'),
     challenge: vi.fn().mockResolvedValue('a related task'),
     explain: vi.fn().mockResolvedValue('what the error means'),
+    review: vi.fn().mockResolvedValue({ passes: true, feedback: 'It works.' }),
     ...overrides,
   };
 }
@@ -108,7 +110,7 @@ describe('Tutor', () => {
     const tutor = await startedTutor();
     await tutor.hint();
     await tutor.check(collect(PASSING));
-    expect(last(tutor)).toMatchObject({ text: 'Checkpoint 1 passes, checked with tsc. Next: Limit the query.', tone: 'success' });
+    expect(last(tutor)).toMatchObject({ text: 'Checkpoint 1 passes, checked with tsc and a code review. It works. Next: Limit the query.', tone: 'success' });
 
     await tutor.check(collect(PASSING));
     expect(tutor.state.session?.phase).toBe('independent-check');
@@ -229,17 +231,72 @@ describe('checks', () => {
     const tutor = await startedTutor();
     await tutor.check(collect(PASSING, { scope: 'editor errors', notes: ['The type check could not run.'] }));
     expect(last(tutor)?.text).toBe(
-      'Checkpoint 1 passes, checked with editor errors. Next: Limit the query. The type check could not run.',
+      'Checkpoint 1 passes, checked with editor errors and a code review. It works. Next: Limit the query. The type check could not run.',
     );
+  });
+});
+
+describe('review', () => {
+  it('refuses code that compiles but does not do the step, and says what is missing', async () => {
+    const review = vi.fn().mockResolvedValue({ passes: false, feedback: 'isEven never returns anything.' });
+    const tutor = await startedTutor(fakeMentor({ review }));
+    await tutor.check(collect(PASSING));
+    expect(current(tutor)?.title).toBe('Read the page param');
+    expect(review).toHaveBeenCalledWith(
+      expect.anything(),
+      'Read the page param: From the URL.',
+      [{ path: 'src/lib/utils.ts', content: 'export const isEven = (n: number) => n % 2 === 0;' }],
+      expect.anything(),
+    );
+    const entry = tutor.state.transcript.find((e) => e.kind === 'check');
+    expect(entry?.text).toBe(
+      'Not passing yet: the code does not do what this step asks yet, checked with tsc and a code review.\nisEven never returns anything.',
+    );
+    expect(tutor.state.canExplain).toBe(false);
+  });
+
+  it('skips the review when the tools already fail', async () => {
+    const review = vi.fn();
+    const tutor = await startedTutor(fakeMentor({ review }));
+    await tutor.check(collect(FAILING));
+    expect(review).not.toHaveBeenCalled();
+  });
+
+  it('shows that it is reviewing', async () => {
+    let finish: (value: { passes: boolean; feedback: string }) => void = () => undefined;
+    const review = vi.fn(() => new Promise<{ passes: boolean; feedback: string }>((resolve) => (finish = resolve)));
+    const tutor = await startedTutor(fakeMentor({ review }));
+    const running = tutor.check(collect(PASSING));
+    await vi.waitFor(() => {
+      expect(tutor.state.activity).toBe('reviewing');
+    });
+    finish({ passes: true, feedback: 'Good.' });
+    await running;
+  });
+
+  it('reviews the independent check against its task', async () => {
+    const review = vi.fn().mockResolvedValue({ passes: true, feedback: 'Done.' });
+    const tutor = await startedTutor(fakeMentor({ review, challenge: vi.fn().mockResolvedValue('Add isOdd.') }));
+    await tutor.check(collect(PASSING));
+    await tutor.check(collect(PASSING));
+    await tutor.check(collect(PASSING));
+    expect(review).toHaveBeenLastCalledWith(expect.anything(), 'Add isOdd.', expect.anything(), expect.anything());
+    expect(tutor.state.session?.phase).toBe('complete');
+  });
+
+  it('does not pass a step when the review cannot run', async () => {
+    const tutor = await startedTutor(fakeMentor({ review: vi.fn().mockRejectedValue(new Error('offline')) }));
+    await tutor.check(collect(PASSING));
+    expect(current(tutor)?.title).toBe('Read the page param');
+    expect(last(tutor)).toMatchObject({ text: 'offline', tone: 'error' });
   });
 });
 
 describe('describeFailure', () => {
   it('gives the headline and notes, leaving the errors to the problems list', () => {
     const problems = [{ file: 'src/a.ts', line: 1, code: 'TS2304', message: 'Missing.' }];
-    const text = describeFailure(
-      report({ errors: 1, tests: 'failed', changedFiles: 1 }, { problems, scope: 'tsc and npm test', notes: ['Tests ran once.'] }),
-    );
+    const failed = report({ errors: 1, tests: 'failed', changedFiles: 1 }, { problems, scope: 'tsc and npm test', notes: ['Tests ran once.'] });
+    const text = describeFailure(failed, { ...failed.evidence, review: 'not-run' });
     expect(text.split('\n')).toEqual(['Not passing yet: 1 error, tests failed, checked with tsc and npm test.', 'Tests ran once.']);
   });
 });
@@ -248,8 +305,9 @@ describe('describeEvidence', () => {
   it('reads naturally', () => {
     expect(describeEvidence({ errors: 1, tests: 'not-run', changedFiles: 2 })).toBe('1 error');
     expect(describeEvidence({ errors: 0, tests: 'failed', changedFiles: 1 })).toBe('0 errors, tests failed');
-    expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 0 })).toBe(
-      'no files saved since this checkpoint started',
+    expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 0 })).toBe('no files saved in this session yet');
+    expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 1, review: 'failed' })).toBe(
+      'the code does not do what this step asks yet',
     );
   });
 });

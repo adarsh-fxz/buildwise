@@ -87,6 +87,7 @@ export function buildReport(
     evidence: { errors: problems.length, tests, changedFiles: editor.evidence.changedFiles },
     scope: scope.join(' and '),
     problems,
+    files: editor.files,
     ...(testOutput !== undefined && { testOutput }),
     notes,
   };

@@ -26,7 +26,7 @@ let renderedEntries = 0;
 let current: ViewState | undefined;
 
 // Counts the seconds of the current wait so slow can be told apart from stuck.
-const ACTIVITY_TEXT = { thinking: 'Thinking', checking: 'Running your checks' } as const;
+const ACTIVITY_TEXT = { thinking: 'Thinking', checking: 'Running your checks', reviewing: 'Reviewing your code' } as const;
 const SLOW_AFTER_S = 20;
 let waiting: { readonly activity: keyof typeof ACTIVITY_TEXT; readonly since: number; readonly timer: number } | undefined;
 

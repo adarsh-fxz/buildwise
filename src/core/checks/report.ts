@@ -1,9 +1,17 @@
-import type { CheckEvidence } from '../session/session';
+import type { ToolEvidence } from '../session/session';
 import type { Problem } from './output';
+
+/** A file the learner saved, for the review. Already through the shareability policy. */
+export interface SharedFile {
+  readonly path: string;
+  readonly content: string;
+}
 
 /** Everything one run of "Check my work" found. */
 export interface CheckReport {
-  readonly evidence: CheckEvidence;
+  readonly evidence: ToolEvidence;
+  /** The files saved this session, for the review. */
+  readonly files: readonly SharedFile[];
   /** What was checked, such as "tsc and npm test". */
   readonly scope: string;
   readonly problems: readonly Problem[];

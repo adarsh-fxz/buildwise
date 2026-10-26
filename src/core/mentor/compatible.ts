@@ -1,7 +1,7 @@
 import type OpenAI from 'openai';
 import type { CheckpointPlan } from '../session/session';
 import { MentorError } from './errors';
-import { type Mentor, PlanSchema } from './mentor';
+import { type Mentor, PlanSchema, type Review, ReviewSchema } from './mentor';
 import {
   answerPrompt,
   challengePrompt,
@@ -12,6 +12,7 @@ import {
   planPrompt,
   renderRepository,
   type RepositoryContext,
+  reviewPrompt,
   solutionPrompt,
   SYSTEM_PROMPT,
 } from './prompts';
@@ -29,7 +30,11 @@ export interface CompatibleOptions {
 const PLAN_FORMAT = `Reply with only a JSON object, no other text, in this shape:
 {"checkpoints": [{"title": "...", "description": "..."}]}`;
 
-const PLAN_ATTEMPTS = 2;
+const REVIEW_FORMAT = `Reply with only a JSON object, no other text, in this shape:
+{"passes": true, "feedback": "..."}`;
+
+// Smaller models sometimes wrap or break the JSON; one retry fixes most of it.
+const JSON_ATTEMPTS = 2;
 
 /**
  * A mentor for any provider that speaks the OpenAI Chat Completions API:
@@ -59,10 +64,17 @@ export function createCompatibleMentor(
 
   return {
     async plan(goal, context) {
-      // Smaller models sometimes wrap or break the JSON; one retry fixes most of it.
-      for (let attempt = 0; attempt < PLAN_ATTEMPTS; attempt++) {
+      for (let attempt = 0; attempt < JSON_ATTEMPTS; attempt++) {
         const plan = parsePlan(await complete(`${planPrompt(goal)}\n\n${PLAN_FORMAT}`, context));
         if (plan) return plan;
+      }
+      throw new MentorError('malformed');
+    },
+    async review(session, task, files, context) {
+      const prompt = `${reviewPrompt(session, task, files, limits)}\n\n${REVIEW_FORMAT}`;
+      for (let attempt = 0; attempt < JSON_ATTEMPTS; attempt++) {
+        const review = parseReview(await complete(prompt, context));
+        if (review) return review;
       }
       throw new MentorError('malformed');
     },
@@ -76,12 +88,21 @@ export function createCompatibleMentor(
 
 /** The checkpoints in a reply, tolerating code fences or text around the JSON. */
 export function parsePlan(text: string): CheckpointPlan[] | undefined {
+  const result = PlanSchema.safeParse(parseJsonObject(text));
+  return result.success ? result.data.checkpoints : undefined;
+}
+
+export function parseReview(text: string): Review | undefined {
+  const result = ReviewSchema.safeParse(parseJsonObject(text));
+  return result.success ? result.data : undefined;
+}
+
+function parseJsonObject(text: string): unknown {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start === -1 || end < start) return undefined;
   try {
-    const result = PlanSchema.safeParse(JSON.parse(text.slice(start, end + 1)));
-    return result.success ? result.data.checkpoints : undefined;
+    return JSON.parse(text.slice(start, end + 1));
   } catch {
     return undefined;
   }

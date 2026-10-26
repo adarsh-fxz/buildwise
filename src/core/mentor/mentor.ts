@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { CheckReport } from '../checks/report';
+import type { CheckReport, SharedFile } from '../checks/report';
 import type { CheckpointPlan, Session } from '../session/session';
 import {
   answerPrompt,
@@ -11,6 +11,7 @@ import {
   planPrompt,
   renderRepository,
   type RepositoryContext,
+  reviewPrompt,
   solutionPrompt,
   SYSTEM_PROMPT,
 } from './prompts';
@@ -26,6 +27,13 @@ export interface Mentor {
   challenge(session: Session, context: RepositoryContext): Promise<string>;
   /** What a failed check means, without the fix. */
   explain(session: Session, report: CheckReport, context: RepositoryContext): Promise<string>;
+  /** Whether the saved files do what `task` asks. Can only block a pass, never grant one. */
+  review(session: Session, task: string, files: readonly SharedFile[], context: RepositoryContext): Promise<Review>;
+}
+
+export interface Review {
+  readonly passes: boolean;
+  readonly feedback: string;
 }
 
 export const DEFAULT_MODEL = 'claude-opus-5-5';
@@ -33,6 +41,8 @@ export const DEFAULT_MODEL = 'claude-opus-5-5';
 export const PlanSchema = z.object({
   checkpoints: z.array(z.object({ title: z.string(), description: z.string() })),
 });
+
+export const ReviewSchema = z.object({ passes: z.boolean(), feedback: z.string() });
 
 type Effort = 'low' | 'medium';
 
@@ -90,6 +100,16 @@ export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MO
     answer: (session, question, context) => text(answerPrompt(session, question), context, 'low'),
     challenge: (session, context) => text(challengePrompt(session), context, 'low'),
     explain: (session, report, context) => text(explainPrompt(session, report), context, 'low'),
+    async review(session, task, files, context) {
+      const params = request(reviewPrompt(session, task, files), context, 'medium');
+      const response = await client.beta.messages.parse({
+        ...params,
+        output_config: { ...params.output_config, format: betaZodOutputFormat(ReviewSchema) },
+      });
+      checkStop(response.stop_reason);
+      if (!response.parsed_output) throw new MentorError('empty');
+      return response.parsed_output;
+    },
   };
 }
 

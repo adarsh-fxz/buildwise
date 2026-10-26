@@ -27,12 +27,21 @@ export interface Session {
   readonly independentCheckPassed: boolean;
 }
 
-/** What the toolchain reported for the learner's current code. */
-export interface CheckEvidence {
+/** What the learner's tools reported for their current code. */
+export interface ToolEvidence {
   readonly errors: number;
   readonly tests: 'passed' | 'failed' | 'not-run';
-  /** Files saved since the current checkpoint started. Zero means no work to check. */
+  /** Files saved during the session. Zero means no work to check. */
   readonly changedFiles: number;
+}
+
+/**
+ * Tool results plus a review of whether the code does what the checkpoint
+ * asks. Code that compiles can still do nothing, so both must pass. The
+ * review can only block a pass: it is not run when the tools fail.
+ */
+export interface CheckEvidence extends ToolEvidence {
+  readonly review: 'passed' | 'failed' | 'not-run';
 }
 
 export type SessionEvent =
@@ -192,6 +201,10 @@ function independentCheck(session: Session, event: PhaseEvent): TransitionResult
 }
 
 function isPassing(evidence: CheckEvidence): boolean {
+  return toolsPass(evidence) && evidence.review === 'passed';
+}
+
+export function toolsPass(evidence: ToolEvidence): boolean {
   return evidence.changedFiles > 0 && evidence.errors === 0 && evidence.tests !== 'failed';
 }
 

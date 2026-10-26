@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { buildReport, type CommandOverrides, detectCommands, type ProjectFacts } from '../core/checks/commands';
-import type { CheckReport } from '../core/checks/report';
+import type { CheckReport, SharedFile } from '../core/checks/report';
 import { runCommand } from '../core/checks/run';
 import { type ChangeTracker, editorReport } from './editorContext';
 
@@ -17,8 +17,9 @@ export async function runChecks(
   folder: vscode.WorkspaceFolder,
   changes: ChangeTracker,
   state: vscode.Memento,
+  files: readonly SharedFile[],
 ): Promise<CheckReport> {
-  const editor = editorReport(folder, changes);
+  const editor = editorReport(folder, changes, files);
   if (!vscode.workspace.isTrusted) {
     return { ...editor, notes: ['Type checks and tests are off because this workspace is not trusted.'] };
   }

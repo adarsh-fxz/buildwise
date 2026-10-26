@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { Problem } from '../core/checks/output';
-import type { CheckReport } from '../core/checks/report';
+import type { CheckReport, SharedFile } from '../core/checks/report';
 import type { RepositoryContext } from '../core/mentor/prompts';
 import type { FolderScan } from './workspaceFiles';
 
@@ -35,7 +35,10 @@ export class EditorTracker implements vscode.Disposable {
   }
 }
 
-/** Files saved in a folder since the last reset. */
+/**
+ * Files saved in a folder during the session. Kept for the whole session, so
+ * work done early for a later step still counts when that step is checked.
+ */
 export class ChangeTracker implements vscode.Disposable {
   private readonly saved = new Set<string>();
   private readonly subscription: vscode.Disposable;
@@ -52,8 +55,8 @@ export class ChangeTracker implements vscode.Disposable {
     return this.saved.size;
   }
 
-  reset(): void {
-    this.saved.clear();
+  uris(): vscode.Uri[] {
+    return [...this.saved].map((uri) => vscode.Uri.parse(uri));
   }
 
   dispose(): void {
@@ -65,7 +68,11 @@ export class ChangeTracker implements vscode.Disposable {
  * Errors VS Code currently reports in the folder. Language servers usually
  * report on open files only, so the scope says how many files that covers.
  */
-export function editorReport(folder: vscode.WorkspaceFolder, changes: ChangeTracker): CheckReport {
+export function editorReport(
+  folder: vscode.WorkspaceFolder,
+  changes: ChangeTracker,
+  files: readonly SharedFile[],
+): CheckReport {
   const inFolder = vscode.languages
     .getDiagnostics()
     .filter(([uri]) => vscode.workspace.getWorkspaceFolder(uri)?.uri.toString() === folder.uri.toString());
@@ -87,8 +94,26 @@ export function editorReport(folder: vscode.WorkspaceFolder, changes: ChangeTrac
     evidence: { errors: problems.length, tests: 'not-run', changedFiles: changes.count },
     scope: `the editor's error list (${String(count)} ${count === 1 ? 'file' : 'files'})`,
     problems,
+    files,
     notes: [],
   };
+}
+
+const MAX_REVIEW_FILES = 10;
+
+/** The saved files the review may see: shareable ones only, newest last. */
+export async function readSavedFiles(changes: ChangeTracker, scan: FolderScan): Promise<SharedFile[]> {
+  const files: SharedFile[] = [];
+  for (const uri of changes.uris().slice(-MAX_REVIEW_FILES)) {
+    try {
+      const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+      const path = vscode.workspace.asRelativePath(uri, false);
+      if (scan.policy(path, Buffer.byteLength(content)).shareable) files.push({ path, content });
+    } catch {
+      // Deleted since it was saved.
+    }
+  }
+  return files;
 }
 
 /** "TS2345" for TypeScript diagnostics, the raw code or source otherwise. */
