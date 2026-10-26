@@ -32,6 +32,7 @@ function rejection(session: Session, event: SessionEvent) {
 }
 
 const hint: SessionEvent = { type: 'hint-requested' };
+const question: SessionEvent = { type: 'question-asked' };
 const reveal: SessionEvent = { type: 'solution-revealed' };
 const checks = (evidence: CheckEvidence = PASSING): SessionEvent => ({ type: 'checks-reported', evidence });
 const building = (steps = 2) => apply(createSession('Add pagination'), { type: 'plan-ready', checkpoints: plan(steps) });
@@ -102,6 +103,14 @@ describe('hints and reveals', () => {
   });
 });
 
+describe('questions', () => {
+  it('counts questions against the current checkpoint without limiting them', () => {
+    const session = apply(building(), question, question, question, question);
+    expect(activeCheckpoint(session)?.questionsAsked).toBe(4);
+    expect(activeCheckpoint(session)?.hintsUsed).toBe(0);
+  });
+});
+
 describe('passing checkpoints', () => {
   it.each<[string, CheckEvidence]>([
     ['compile errors', { errors: 1, tests: 'passed' }],
@@ -128,6 +137,7 @@ describe('independent check', () => {
 
   it('refuses all assistance', () => {
     expect(rejection(checking(), hint)).toBe('assistance-disabled');
+    expect(rejection(checking(), question)).toBe('assistance-disabled');
     expect(rejection(checking(), reveal)).toBe('assistance-disabled');
   });
 
@@ -167,8 +177,8 @@ describe('summarize', () => {
     const session = apply(
       building(3),
       checks(), // step 1: unassisted
-      hint,
-      checks(), // step 2: one hint
+      question,
+      checks(), // step 2: one question
       hint,
       hint,
       hint,
@@ -180,7 +190,8 @@ describe('summarize', () => {
       checkpointsTotal: 3,
       checkpointsPassed: 3,
       checkpointsUnassisted: 1,
-      hintsUsed: 4,
+      hintsUsed: 3,
+      questionsAsked: 1,
       solutionsRevealed: 1,
       independentCheckPassed: true,
     });

@@ -16,6 +16,7 @@ export interface Checkpoint extends CheckpointPlan {
   readonly status: 'pending' | 'active' | 'passed';
   /** Highest hint level given so far; 0 means no hints. */
   readonly hintsUsed: number;
+  readonly questionsAsked: number;
   readonly solutionRevealed: boolean;
 }
 
@@ -35,6 +36,7 @@ export interface CheckEvidence {
 export type SessionEvent =
   | { readonly type: 'plan-ready'; readonly checkpoints: readonly CheckpointPlan[] }
   | { readonly type: 'hint-requested' }
+  | { readonly type: 'question-asked' }
   | { readonly type: 'solution-revealed' }
   | { readonly type: 'checks-reported'; readonly evidence: CheckEvidence }
   | { readonly type: 'ended' };
@@ -87,9 +89,10 @@ export function activeCheckpoint(session: Session): Checkpoint | undefined {
 export interface SessionSummary {
   readonly checkpointsTotal: number;
   readonly checkpointsPassed: number;
-  /** Passed with no hints and no reveal. */
+  /** Passed with no hints, questions or reveal. */
   readonly checkpointsUnassisted: number;
   readonly hintsUsed: number;
+  readonly questionsAsked: number;
   readonly solutionsRevealed: number;
   readonly independentCheckPassed: boolean;
 }
@@ -99,8 +102,11 @@ export function summarize(session: Session): SessionSummary {
   return {
     checkpointsTotal: session.checkpoints.length,
     checkpointsPassed: passed.length,
-    checkpointsUnassisted: passed.filter((c) => c.hintsUsed === 0 && !c.solutionRevealed).length,
+    checkpointsUnassisted: passed.filter(
+      (c) => c.hintsUsed === 0 && c.questionsAsked === 0 && !c.solutionRevealed,
+    ).length,
     hintsUsed: session.checkpoints.reduce((total, checkpoint) => total + checkpoint.hintsUsed, 0),
+    questionsAsked: session.checkpoints.reduce((total, checkpoint) => total + checkpoint.questionsAsked, 0),
     solutionsRevealed: session.checkpoints.filter((checkpoint) => checkpoint.solutionRevealed).length,
     independentCheckPassed: session.independentCheckPassed,
   };
@@ -120,6 +126,7 @@ function startBuilding(session: Session, plan: readonly CheckpointPlan[]): Trans
       description: step.description.trim(),
       status: index === 0 ? 'active' : 'pending',
       hintsUsed: 0,
+      questionsAsked: 0,
       solutionRevealed: false,
     }),
   );
@@ -139,6 +146,9 @@ function build(session: Session, event: PhaseEvent): TransitionResult {
         return reject('hint-limit-reached');
       }
       return accept(updateCheckpoint(session, index, { hintsUsed: current.hintsUsed + 1 }));
+
+    case 'question-asked':
+      return accept(updateCheckpoint(session, index, { questionsAsked: current.questionsAsked + 1 }));
 
     case 'solution-revealed':
       if (current.hintsUsed < HINT_LEVELS) {
@@ -167,6 +177,7 @@ function build(session: Session, event: PhaseEvent): TransitionResult {
 function independentCheck(session: Session, event: PhaseEvent): TransitionResult {
   switch (event.type) {
     case 'hint-requested':
+    case 'question-asked':
     case 'solution-revealed':
       return reject('assistance-disabled');
     case 'checks-reported':
