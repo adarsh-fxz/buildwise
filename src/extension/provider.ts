@@ -74,11 +74,16 @@ export async function removeApiKeys(secrets: vscode.SecretStorage): Promise<void
   void vscode.window.showInformationMessage('BuildWise removed your saved API keys.');
 }
 
+// One retry covers a brief rate limit; more would leave the learner waiting minutes.
+const MAX_RETRIES = 1;
+
 function createMentor({ provider, model, baseURL, apiKey }: Configured): Mentor {
+  const timeout = provider.timeoutMs;
   if (provider.id === 'anthropic') {
-    return createClaudeMentor(new Anthropic({ apiKey }), model);
+    return createClaudeMentor(new Anthropic({ apiKey, timeout, maxRetries: MAX_RETRIES }), model);
   }
-  return createCompatibleMentor(new OpenAI({ apiKey: apiKey ?? 'not-needed', baseURL }), {
+  const client = new OpenAI({ apiKey: apiKey ?? 'not-needed', baseURL, timeout, maxRetries: MAX_RETRIES });
+  return createCompatibleMentor(client, {
     model,
     ...(provider.limits && { limits: provider.limits }),
     ...(provider.maxOutputTokens !== undefined && { maxOutputTokens: provider.maxOutputTokens }),

@@ -17,9 +17,14 @@ export interface Provider {
   readonly suggestedModel?: string;
   readonly limits?: ContextLimits;
   readonly maxOutputTokens?: number;
+  /** How long one request may take before BuildWise gives up. */
+  readonly timeoutMs: number;
   /** Filters the provider's model list down to models that can chat. */
   readonly isChatModel?: (id: string) => boolean;
 }
+
+// Long enough for a thinking model on a busy free tier; short enough to notice a stuck request.
+const CLOUD_TIMEOUT_MS = 60_000;
 
 export const PROVIDERS: readonly Provider[] = [
   {
@@ -31,6 +36,7 @@ export const PROVIDERS: readonly Provider[] = [
     keyUrl: 'https://aistudio.google.com/apikey',
     needsKey: true,
     suggestedModel: 'gemini-3.8-flash',
+    timeoutMs: CLOUD_TIMEOUT_MS,
     isChatModel: (id) => /^(gemini|gemma)/.test(id) && !/(embedding|image|tts|audio|live)/.test(id),
   },
   {
@@ -44,6 +50,7 @@ export const PROVIDERS: readonly Provider[] = [
     // The free tier allows about 8,000 tokens a minute, input and output together.
     limits: { maxFiles: 80, maxOpenFileChars: 6000 },
     maxOutputTokens: 3000,
+    timeoutMs: CLOUD_TIMEOUT_MS,
     isChatModel: (id) => !/(whisper|tts|orpheus|guard|compound)/.test(id),
   },
   {
@@ -54,6 +61,7 @@ export const PROVIDERS: readonly Provider[] = [
     baseURL: 'https://openrouter.ai/api/v1',
     keyUrl: 'https://openrouter.ai/keys',
     needsKey: true,
+    timeoutMs: CLOUD_TIMEOUT_MS,
     isChatModel: (id) => id.endsWith(':free') && !/(safety|guard)/.test(id),
   },
   {
@@ -65,6 +73,8 @@ export const PROVIDERS: readonly Provider[] = [
     needsKey: false,
     // Local models often run with a small context window.
     limits: { maxFiles: 100, maxOpenFileChars: 8000 },
+    // Models running on a laptop CPU can take minutes.
+    timeoutMs: 5 * 60_000,
     isChatModel: (id) => !/embed/.test(id),
   },
   {
@@ -75,6 +85,7 @@ export const PROVIDERS: readonly Provider[] = [
     keyUrl: 'https://console.anthropic.com',
     needsKey: true,
     suggestedModel: DEFAULT_MODEL,
+    timeoutMs: 2 * 60_000,
     isChatModel: (id) => id.startsWith('claude'),
   },
   {
@@ -83,6 +94,7 @@ export const PROVIDERS: readonly Provider[] = [
     detail: 'Any provider with a Chat Completions endpoint, such as Mistral or Cerebras.',
     free: false,
     needsKey: true,
+    timeoutMs: CLOUD_TIMEOUT_MS,
   },
 ];
 
