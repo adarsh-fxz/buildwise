@@ -66,7 +66,7 @@ BuildWise is read-only: it doesn't edit files or run commands without asking. Te
 
 ## Roadmap
 
-- [ ] **Foundation:** extension scaffold, strict TypeScript, unit tests, CI
+- [x] **Foundation:** extension scaffold, strict TypeScript, unit tests, CI
 - [ ] **Context filter:** decide which files may be shared, with a reason for each exclusion
 - [ ] **Code navigation:** find the files and symbols relevant to a goal
 - [ ] **Mentor loop:** Claude-backed planner, checkpoint state machine, hint ladder, chat panel
@@ -91,7 +91,7 @@ Who pays is a hypothesis to test. Individual learners come first because they ar
 
 ## Development
 
-Requirements: Node.js 20+ and VS Code 1.95+.
+Requirements: Node.js 22+ and VS Code 1.95+.
 
 ```sh
 npm install

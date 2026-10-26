@@ -1,0 +1,45 @@
+{
+  "name": "buildwise",
+  "displayName": "BuildWise",
+  "description": "A mentor that teaches you to build features in your own codebase, instead of building them for you.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "buildwise",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adarsh8848/buildwise.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=22"
+  },
+  "categories": [
+    "Education",
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {},
+  "scripts": {
+    "build": "node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "~1.95.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "npm: build:dev",
+      "type": "shell",
+      "command": "node esbuild.mjs",
+      "group": "build",
+      "problemMatcher": "$esbuild"
+    }
+  ]
+}
