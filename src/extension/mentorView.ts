@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
-import { instrument, seconds } from '../core/mentor/instrument';
+import { instrument, seconds, switchable } from '../core/mentor/instrument';
+import { describeError } from '../core/mentor/errors';
+import type { Mentor } from '../core/mentor/mentor';
 import { isWorthRecording, summarizeProgress } from '../core/progress/log';
 import { activeCheckpoint, HINT_LEVELS, summarize } from '../core/session/session';
 import { Tutor, type TutorState } from '../core/tutor/tutor';
-import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
-import { describeConfigured, loadMentor, setupProvider } from './provider';
+import type { FromWebview, ModelChoice, ToWebview, ViewState } from '../webview/protocol';
+import type { Providers } from './provider';
 import { runChecks } from './checks';
 import type { LearningLog } from './learningLog';
 import { ChangeTracker, EditorTracker, readSavedFiles, repositoryContext, saveEdits } from './editorContext';
@@ -30,11 +32,17 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
   private starting = false;
   private latest: TutorState | undefined;
   private model: string | undefined;
+  private choice: ModelChoice | undefined;
+  // Saving a choice changes several settings at once; refreshing in order keeps the last state.
+  private refreshing: Promise<void> = Promise.resolve();
+  /** The mentor for the current choice. Sessions reach it through switchable(), so a change applies to the next request. */
+  private mentor: Mentor | undefined;
   private readonly editors = new EditorTracker();
   private readonly subscriptions: vscode.Disposable[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
+    private readonly providers: Providers,
     private readonly secrets: vscode.SecretStorage,
     private readonly workspaceState: vscode.Memento,
     private readonly output: vscode.OutputChannel,
@@ -73,9 +81,43 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     for (const subscription of this.subscriptions) subscription.dispose();
   }
 
-  private async refreshSetup(): Promise<void> {
-    this.model = await describeConfigured(this.secrets);
+  private refreshSetup(): Promise<void> {
+    this.refreshing = this.refreshing
+      .then(() => this.readSetup())
+      .catch((error: unknown) => {
+        this.log(`Could not read the model settings: ${describeError(error)}`);
+      });
+    return this.refreshing;
+  }
+
+  private async readSetup(): Promise<void> {
+    const before = choiceKey(this.choice);
+    [this.model, this.choice] = await Promise.all([this.providers.describe(), this.providers.choice()]);
+    if (this.active && this.choice && choiceKey(this.choice) !== before) {
+      const next = await this.providers.current();
+      if (next) {
+        this.mentor = this.instrumented(next);
+        this.log(`Switched to ${this.model ?? 'the new model'}, reasoning effort ${this.choice.effort}.`);
+      }
+    }
     this.post(this.latest);
+  }
+
+  private async postModels(): Promise<void> {
+    let message: ToWebview;
+    try {
+      const { provider, models } = await this.providers.currentModels();
+      message = { type: 'models', provider, models };
+    } catch (error) {
+      message = { type: 'models', provider: this.choice?.provider ?? '', models: [], error: describeError(error) };
+    }
+    void this.view?.webview.postMessage(message);
+  }
+
+  private instrumented(mentor: Mentor): Mentor {
+    return instrument(mentor, (line) => {
+      this.log(line);
+    });
   }
 
   private async handle(message: FromWebview): Promise<void> {
@@ -86,7 +128,19 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
         await this.refreshSetup();
         return;
       case 'setup':
-        await setupProvider(this.secrets);
+        await this.providers.setup();
+        return;
+      case 'chooseProvider':
+        await this.providers.switchTo(message.provider);
+        return;
+      case 'listModels':
+        await this.postModels();
+        return;
+      case 'chooseModel':
+        await this.providers.setModel(message.model);
+        return;
+      case 'chooseEffort':
+        await this.providers.setEffort(message.effort);
         return;
       case 'savePilotReport':
         void vscode.commands.executeCommand('buildwise.savePilotReport');
@@ -142,11 +196,10 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
 
     this.starting = true;
     try {
-      const loaded = await loadMentor(this.secrets);
+      const loaded = await this.providers.load();
       if (!loaded) return;
-      const mentor = instrument(loaded, (line) => {
-        this.log(line);
-      });
+      this.mentor = this.instrumented(loaded);
+      const mentor = switchable(() => this.mentor ?? this.instrumented(loaded));
       this.log(`Session started with ${this.model ?? 'the configured model'}.`);
       this.disposeActive();
       const changes = new ChangeTracker(folder);
@@ -236,7 +289,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     this.latest = state;
     const message: ToWebview = {
       type: 'state',
-      state: toViewState(state, this.model, !vscode.workspace.workspaceFolders?.length, this.progress()),
+      state: toViewState(state, this.model, this.choice, !vscode.workspace.workspaceFolders?.length, this.progress()),
     };
     void this.view?.webview.postMessage(message);
   }
@@ -264,6 +317,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
 function toViewState(
   state: TutorState | undefined,
   model: string | undefined,
+  choice: ModelChoice | undefined,
   needsFolder: boolean,
   progress: ViewState['progress'],
 ): ViewState {
@@ -279,9 +333,14 @@ function toViewState(
     activity: state?.activity,
     transcript: state?.transcript ?? [],
     model,
+    choice,
     needsFolder,
     progress,
   };
+}
+
+function choiceKey(choice: ModelChoice | undefined): string {
+  return choice ? `${choice.provider} ${choice.model} ${choice.effort}` : '';
 }
 
 function createNonce(): string {

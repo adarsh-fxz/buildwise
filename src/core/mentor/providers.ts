@@ -6,6 +6,8 @@ export type ProviderId = 'gemini' | 'groq' | 'openrouter' | 'ollama' | 'anthropi
 export interface Provider {
   readonly id: ProviderId;
   readonly label: string;
+  /** For the provider menu under the input box, where space is short. */
+  readonly shortLabel: string;
   /** One line shown when choosing a provider. */
   readonly detail: string;
   readonly free: boolean;
@@ -32,6 +34,7 @@ export const PROVIDERS: readonly Provider[] = [
   {
     id: 'gemini',
     label: 'Google Gemini',
+    shortLabel: 'Gemini',
     detail: 'Free tier with a Google account and no card. Daily limits apply.',
     free: true,
     baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
@@ -46,6 +49,7 @@ export const PROVIDERS: readonly Provider[] = [
   {
     id: 'groq',
     label: 'Groq',
+    shortLabel: 'Groq',
     detail: 'Free tier with fast open models. Small per-minute limits, so BuildWise sends less context.',
     free: true,
     baseURL: 'https://api.groq.com/openai/v1',
@@ -60,6 +64,7 @@ export const PROVIDERS: readonly Provider[] = [
   {
     id: 'openrouter',
     label: 'OpenRouter',
+    shortLabel: 'OpenRouter',
     detail: 'Models marked ":free" cost nothing, with about 50 requests a day.',
     free: true,
     baseURL: 'https://openrouter.ai/api/v1',
@@ -71,6 +76,7 @@ export const PROVIDERS: readonly Provider[] = [
   {
     id: 'ollama',
     label: 'Ollama',
+    shortLabel: 'Ollama',
     detail: 'Runs models on your own computer: free and private, but needs a capable machine.',
     free: true,
     baseURL: 'http://localhost:11434/v1',
@@ -84,6 +90,7 @@ export const PROVIDERS: readonly Provider[] = [
   {
     id: 'anthropic',
     label: 'Anthropic Claude',
+    shortLabel: 'Claude',
     detail: 'Paid per use.',
     free: false,
     keyUrl: 'https://console.anthropic.com',
@@ -95,6 +102,7 @@ export const PROVIDERS: readonly Provider[] = [
   {
     id: 'custom',
     label: 'Other OpenAI-compatible API',
+    shortLabel: 'Custom',
     detail: 'Any provider with a Chat Completions endpoint, such as Mistral or Cerebras.',
     free: false,
     needsKey: true,

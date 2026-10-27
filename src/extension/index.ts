@@ -3,7 +3,7 @@ import { resetCheckPermissions } from './checks';
 import { LearningLog } from './learningLog';
 import { MentorViewProvider } from './mentorView';
 import { savePilotReport } from './pilotReport';
-import { removeApiKeys, setupProvider, testConnection } from './provider';
+import { Providers } from './provider';
 import { showSharedContext } from './sharedContext';
 
 const WELCOMED_KEY = 'buildwise.welcomed';
@@ -20,7 +20,8 @@ export function activate(context: vscode.ExtensionContext): void {
   statusItem.show();
 
   const learningLog = new LearningLog(context.globalState);
-  const mentorView = new MentorViewProvider(context.extensionUri, context.secrets, context.workspaceState, output, learningLog);
+  const providers = new Providers(context.secrets, context.globalState);
+  const mentorView = new MentorViewProvider(context.extensionUri, providers, context.secrets, context.workspaceState, output, learningLog);
   context.subscriptions.push(
     output,
     statusItem,
@@ -28,11 +29,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('buildwise.openMentor', openMentor),
     vscode.window.registerWebviewViewProvider(MentorViewProvider.viewId, mentorView),
     vscode.commands.registerCommand('buildwise.showSharedContext', () => showSharedContext(output)),
-    vscode.commands.registerCommand('buildwise.setupProvider', () => setupProvider(context.secrets)),
-    vscode.commands.registerCommand('buildwise.removeApiKeys', () => removeApiKeys(context.secrets)),
+    vscode.commands.registerCommand('buildwise.setupProvider', () => providers.setup()),
+    vscode.commands.registerCommand('buildwise.removeApiKeys', () => providers.removeKeys()),
     vscode.commands.registerCommand('buildwise.testConnection', async () => {
       output.show(true);
-      await testConnection(context.secrets, (line) => {
+      await providers.test((line) => {
         output.appendLine(`[${new Date().toLocaleTimeString()}] ${line}`);
       });
     }),

@@ -13,6 +13,7 @@ const base: ViewState = {
   activity: undefined,
   transcript: [],
   model: 'm',
+  choice: undefined,
   needsFolder: false,
   progress: undefined,
 };

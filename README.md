@@ -63,7 +63,7 @@ BuildWise is not on the Marketplace yet. Install it from a `.vsix` file:
 2. BuildWise opens in the side bar on the right, so it stays in view while you move between files. If it is hidden, click **BuildWise** in the status bar at the bottom of the window. The panel walks you through the rest:
    - **Choose an AI model:** pick a provider, paste its API key and choose a model. See [Models](#models) for free options.
    - **Open your project:** open the folder of a TypeScript project you want to work on.
-3. Describe what you want to build and press **Start session**.
+3. Describe what you want to build in the box at the bottom of the panel and press <kbd>Enter</kbd> (<kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line). During a session, the same box takes your questions.
 
 **Check my work** runs `tsc --noEmit` when the project has a `tsconfig.json`, and the `test` script from `package.json`. BuildWise asks before the first run and shows the exact commands. Change them with `buildwise.checks.typecheckCommand` and `buildwise.checks.testCommand`, or set either to an empty string to skip it. If a command can't run, BuildWise falls back to the errors VS Code reports and tells you.
 
@@ -73,7 +73,7 @@ Current limits: related files are found by shared words, not meaning, so a goal 
 
 ## Models
 
-BuildWise works with any of these. Run **BuildWise: Set Up Model Provider** to switch; the model list comes live from the provider, so it is always current.
+BuildWise works with any of these. Switch provider, model and reasoning effort from the menus under the input box, even in the middle of a session: the next request uses your new choice. Switching to a provider you have used before takes one click; a new one asks for its API key first. The model list comes live from the provider, so it is always current, and you can type a name it doesn't show.
 
 | Provider | Cost | Notes |
 | --- | --- | --- |

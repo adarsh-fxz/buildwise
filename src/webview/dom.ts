@@ -34,7 +34,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export type ButtonStyle = 'primary' | 'secondary' | 'link' | 'chip' | 'icon' | 'problem';
+export type ButtonStyle = 'primary' | 'secondary' | 'link' | 'chip' | 'icon' | 'problem' | 'picker' | 'send';
 
 export function button(
   content: string | Node[],
@@ -60,6 +60,9 @@ const ICONS = {
   target: ['M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z', 'M8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z', 'M8 7.75v.5'],
   list: ['M6 4h7.5', 'M6 8h7.5', 'M6 12h7.5', 'M2.75 4h.01', 'M2.75 8h.01', 'M2.75 12h.01'],
   file: ['M4 1.5h5l3.5 3.5v9.5h-8.5z', 'M9 1.5V5h3.5'],
+  arrowUp: ['M8 13V3.5', 'M4 7.5l4-4 4 4'],
+  chevron: ['M5 6.5L8 9.5l3-3'],
+  gauge: ['M2.25 11.5a5.75 5.75 0 1 1 11.5 0', 'M8 11.5l2.75-3.25'],
   trophy: ['M5 2h6v4a3 3 0 0 1-6 0z', 'M5 3H2.5v1a2.5 2.5 0 0 0 2.5 2.5', 'M11 3h2.5v1A2.5 2.5 0 0 1 11 6.5', 'M8 9v3', 'M5.5 14h5'],
 } as const;
 

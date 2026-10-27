@@ -1,3 +1,4 @@
+import { composer, initComposer, receiveModels } from './composer';
 import { button, el, icon, type IconName } from './dom';
 import type { FileRef } from './fileRef';
 import { nextStep } from './guide';
@@ -11,7 +12,6 @@ type Entry = ViewState['transcript'][number];
 const vscode = acquireVsCodeApi();
 const root = document.getElementById('root') as HTMLElement;
 
-const START_KEYS = navigator.userAgent.includes('Mac') ? '⌘Enter' : 'Ctrl+Enter';
 const MAX_LISTED_PROBLEMS = 5;
 const EXAMPLE_GOALS = [
   'Add a function called greet that takes a name and returns "Hello, <name>!"',
@@ -53,8 +53,17 @@ const actions = {
 };
 
 window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
-  render(event.data.state);
+  if (event.data.type === 'models') receiveModels(event.data);
+  else render(event.data.state);
 });
+initComposer(
+  (message) => {
+    vscode.postMessage(message);
+  },
+  () => {
+    if (current) render(current);
+  },
+);
 vscode.postMessage({ type: 'ready' });
 
 function render(state: ViewState): void {
@@ -74,9 +83,15 @@ function render(state: ViewState): void {
       }
     : { firstNewEntry: Infinity, newlyPassed: new Set(), newHint: false, fromProgress: progress, newTip: false };
 
-  const focused = document.activeElement?.id;
+  // Re-rendering replaces every element, so put focus and the caret back where they were.
+  const active = document.activeElement;
+  const caret = active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement ? [active.selectionStart, active.selectionEnd] : undefined;
   root.replaceChildren(...(state.phase === 'idle' ? idleView(state) : sessionView(state)));
-  if (focused) document.getElementById(focused)?.focus();
+  const restored = active?.id ? document.getElementById(active.id) : null;
+  restored?.focus();
+  if (caret && (restored instanceof HTMLTextAreaElement || restored instanceof HTMLInputElement)) {
+    restored.setSelectionRange(caret[0] ?? null, caret[1] ?? null);
+  }
 
   const transcript = document.getElementById('transcript');
   if (transcript && state.transcript.length !== shown?.entries) {
@@ -94,21 +109,6 @@ function prefersMotion(): boolean {
 function idleView(state: ViewState): Node[] {
   if (state.model === undefined || state.needsFolder) return gettingStarted(state);
 
-  const goal = el('textarea', { id: 'goal', rows: 3, placeholder: 'Add pagination to the posts page' });
-  goal.value = drafts.goal;
-  goal.addEventListener('input', () => (drafts.goal = goal.value));
-  const start = () => {
-    if (drafts.goal.trim() === '') {
-      goal.focus();
-      return;
-    }
-    vscode.postMessage({ type: 'start', goal: drafts.goal });
-    drafts.goal = '';
-  };
-  goal.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) start();
-  });
-
   const examples = EXAMPLE_GOALS.map((example) =>
     button(example, () => {
       drafts.goal = example;
@@ -120,22 +120,28 @@ function idleView(state: ViewState): Node[] {
   return [
     el('section', { className: 'stack' }, [
       el('h2', { text: 'What do you want to build?' }),
-      el('p', { className: 'muted', text: 'Describe one feature. BuildWise splits it into small steps and gives hints; you write the code.' }),
-      el('label', { className: 'field-label', htmlFor: 'goal', text: 'Your goal' }),
-      goal,
-      el('div', { className: 'row' }, [
-        button(state.activity ? 'Planning…' : 'Start session', start, { style: 'primary', disabled: busy(state) }),
-        el('span', { className: 'muted small', text: START_KEYS }),
-      ]),
-      ...statusLine(),
+      el('p', { className: 'muted', text: 'Describe one feature below. BuildWise splits it into small steps and gives hints; you write the code.' }),
     ]),
     el('section', { className: 'stack examples' }, [el('div', { className: 'section-label', text: 'Not sure? Try one' }), ...examples]),
     ...(state.progress ? [progressView(state.progress)] : []),
-    el('p', { className: 'muted small model-line' }, [
-      document.createTextNode(`Using ${state.model}. `),
-      button('Change', send({ type: 'setup' }), { style: 'link' }),
-    ]),
     ...(state.transcript.length ? [transcriptView(state)] : []),
+    el('footer', { className: 'actions' }, [
+      ...statusLine(),
+      composer({
+        id: 'goal',
+        placeholder: 'Describe a feature to build',
+        label: 'Start session',
+        value: drafts.goal,
+        inputDisabled: false,
+        busy: busy(state),
+        choice: state.choice,
+        onInput: (text) => (drafts.goal = text),
+        onSend: () => {
+          vscode.postMessage({ type: 'start', goal: drafts.goal });
+          drafts.goal = '';
+        },
+      }),
+    ]),
   ];
 }
 
@@ -286,7 +292,10 @@ function sessionHeader(state: ViewState): HTMLElement {
   bar.setAttribute('aria-valuenow', String(done));
 
   return el('header', { className: 'session-header stack-tight' }, [
-    el('div', { className: 'goal', text: goal, title: goal }),
+    el('div', { className: 'row spread' }, [
+      el('div', { className: 'goal', text: goal, title: goal }),
+      ...(state.phase === 'complete' ? [] : [button('End session', send({ type: 'end' }), { style: 'link', disabled: busy(state) })]),
+    ]),
     el('div', { className: 'row spread small' }, [
       el('span', { text: progressText }),
       el('span', { className: 'muted', text: `${String(done)}/${String(total)} done` }),
@@ -460,31 +469,21 @@ function sessionActions(state: ViewState): HTMLElement {
     ...statusLine(),
     el('div', { className: 'row wrap' }, primary),
     ...(secondary.length ? [el('div', { className: 'row wrap' }, secondary)] : []),
-    ...(building
-      ? [askForm(state)]
-      : [el('p', { className: 'muted small', text: 'Hints and questions are off for the independent check.' })]),
-    button('End session', send({ type: 'end' }), { style: 'link', disabled: busy(state) }),
+    composer({
+      id: 'question',
+      placeholder: building ? 'Ask about this step' : 'Questions are off for the independent check',
+      label: 'Ask a question',
+      value: building ? drafts.question : '',
+      inputDisabled: !building,
+      busy: busy(state),
+      choice: state.choice,
+      onInput: (text) => (drafts.question = text),
+      onSend: () => {
+        vscode.postMessage({ type: 'ask', question: drafts.question });
+        drafts.question = '';
+      },
+    }),
   ]);
-}
-
-function askForm(state: ViewState): HTMLElement {
-  const input = el('input', {
-    id: 'question',
-    type: 'text',
-    placeholder: 'Ask about this step, then press Enter',
-    ariaLabel: 'Ask a question',
-  });
-  input.value = drafts.question;
-  input.disabled = busy(state);
-  input.addEventListener('input', () => (drafts.question = input.value));
-  const form = el('form', { className: 'ask' }, [input]);
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (drafts.question.trim() === '') return;
-    vscode.postMessage({ type: 'ask', question: drafts.question });
-    drafts.question = '';
-  });
-  return form;
 }
 
 function completeActions(): HTMLElement {
