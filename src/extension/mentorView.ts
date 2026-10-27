@@ -8,6 +8,7 @@ import { describeConfigured, loadMentor, setupProvider } from './provider';
 import { runChecks } from './checks';
 import type { LearningLog } from './learningLog';
 import { ChangeTracker, EditorTracker, readSavedFiles, repositoryContext } from './editorContext';
+import { SourceIndex } from './sourceIndex';
 import { type FolderScan, scanFolder } from './workspaceFiles';
 import { isWorkspaceRelative } from '../webview/fileRef';
 
@@ -16,6 +17,7 @@ interface ActiveSession {
   readonly folder: vscode.WorkspaceFolder;
   readonly scan: FolderScan;
   readonly changes: ChangeTracker;
+  readonly sources: SourceIndex;
   readonly startedAt: number;
   recorded: boolean;
 }
@@ -67,7 +69,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
 
   dispose(): void {
     this.editors.dispose();
-    this.active?.changes.dispose();
+    this.disposeActive();
     for (const subscription of this.subscriptions) subscription.dispose();
   }
 
@@ -121,7 +123,7 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
         return;
       case 'new':
         if (tutor?.state.session?.phase === 'complete') {
-          this.active?.changes.dispose();
+          this.disposeActive();
           this.active = undefined;
           this.post(undefined);
         }
@@ -146,18 +148,21 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
         this.log(line);
       });
       this.log(`Session started with ${this.model ?? 'the configured model'}.`);
-      this.active?.changes.dispose();
+      this.disposeActive();
       const changes = new ChangeTracker(folder);
       const scanStarted = Date.now();
       const scan = await scanFolder(folder);
-      this.log(`Scanned ${String(scan.files.length)} files in ${seconds(Date.now() - scanStarted)}.`);
-      const tutor: Tutor = new Tutor(mentor, repositoryContext(scan, this.editors), (state) => {
+      const sources = await SourceIndex.build(scan);
+      this.log(
+        `Scanned ${String(scan.files.length)} files and indexed ${String(sources.size)} source files in ${seconds(Date.now() - scanStarted)}.`,
+      );
+      const tutor: Tutor = new Tutor(mentor, repositoryContext(scan, this.editors, sources), (state) => {
         // Post the tutor's current state, not this one: recording may finish after newer changes.
         void this.recordIfFinished(state).finally(() => {
           this.post(tutor.state);
         });
       });
-      this.active = { tutor, folder, scan, changes, startedAt: Date.now(), recorded: false };
+      this.active = { tutor, folder, scan, changes, sources, startedAt: Date.now(), recorded: false };
       await tutor.start(goal);
     } finally {
       this.starting = false;
@@ -174,6 +179,11 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
       this.log(`check: ${report.scope}, ${String(report.evidence.errors)} errors, tests ${report.evidence.tests}, in ${seconds(Date.now() - started)}`);
       return report;
     });
+  }
+
+  private disposeActive(): void {
+    this.active?.changes.dispose();
+    this.active?.sources.dispose();
   }
 
   /** Adds a finished session to the learning log, once. */

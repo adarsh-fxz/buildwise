@@ -67,7 +67,9 @@ BuildWise is not on the Marketplace yet. Install it from a `.vsix` file:
 
 **Check my work** runs `tsc --noEmit` when the project has a `tsconfig.json`, and the `test` script from `package.json`. BuildWise asks before the first run and shows the exact commands. Change them with `buildwise.checks.typecheckCommand` and `buildwise.checks.testCommand`, or set either to an empty string to skip it. If a command can't run, BuildWise falls back to the errors VS Code reports and tells you.
 
-Current limits: the mentor sees your file list and the file you have open, not the whole repository. A checkpoint passes on a clean compile and passing tests; nothing yet checks that your change matches the checkpoint.
+The mentor sees your file list, the file you have open, and the source files related to the current step. BuildWise finds those by matching words from your goal and the step against file names, declared names and identifiers, so it runs offline at no cost; a small project is sent whole. A checkpoint passes when your code compiles, your tests pass, and the mentor's review agrees the change does what the step asks. The review can block a pass but never grant one.
+
+Current limits: related files are found by shared words, not meaning, so a goal phrased very differently from the code can miss the right file. Open that file and the mentor will see it.
 
 ## Models
 
@@ -88,7 +90,7 @@ Free tiers change often and have daily limits. Smaller models give weaker hints 
 
 ## Privacy
 
-Nothing is sent anywhere until you start a session. During a session, BuildWise sends the model provider you chose your goal and questions, the paths of shareable files (up to 300), the contents of the file open in your editor if that file is shareable, and, when you ask for an explanation, the errors and the end of the test output. Your API key is stored in the OS keychain through VS Code's secret storage.
+Nothing is sent anywhere until you start a session. During a session, BuildWise sends the model provider you chose your goal and questions, the paths of shareable files (up to 300), the contents of the file open in your editor if that file is shareable, the shareable source files related to the current step (whole, or the lines around matching words), and, when you ask for an explanation, the errors and the end of the test output. Your API key is stored in the OS keychain through VS Code's secret storage.
 
 BuildWise keeps a learning log of finished sessions on your machine (the goal, steps passed, hints and questions used, and how long it took) to show your progress on the start screen. It is never uploaded. **BuildWise: Clear Learning Log** deletes it.
 
@@ -110,7 +112,7 @@ BuildWise is read-only: it never edits your files. It runs only the check comman
 
 - [x] **Foundation:** extension scaffold, strict TypeScript, unit tests, CI
 - [x] **Context filter:** decide which files may be shared, with a reason for each exclusion
-- [ ] **Code navigation:** find the files and symbols relevant to a goal
+- [x] **Code navigation:** find the files and symbols relevant to a goal
 - [x] **Tutoring policy:** checkpoint state machine, hint ladder, locked reveals, session summary
 - [x] **Mentor loop:** Claude-backed planner and hints, chat panel
 - [x] **Feedback:** run the type checker and tests with consent, list errors, explain them without the fix

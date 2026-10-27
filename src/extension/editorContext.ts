@@ -2,24 +2,31 @@ import * as vscode from 'vscode';
 import type { Problem } from '../core/checks/output';
 import type { CheckReport, SharedFile } from '../core/checks/report';
 import type { RepositoryContext } from '../core/mentor/prompts';
+import type { SourceIndex } from './sourceIndex';
 import type { FolderScan } from './workspaceFiles';
 
 /**
- * What the mentor sees: the shareable file list from the scan, plus the
- * learner's current editor if that file is shareable too. The editor is
- * read fresh on each request so hints follow what they are working on.
+ * What the mentor sees: the shareable file list from the scan, the
+ * learner's current editor if that file is shareable too, and the indexed
+ * source files to pick ones related to `focus` from. The editor is read
+ * fresh on each request so hints follow what they are working on.
  */
-export function repositoryContext(scan: FolderScan, editors: EditorTracker): () => Promise<RepositoryContext> {
+export function repositoryContext(
+  scan: FolderScan,
+  editors: EditorTracker,
+  sources: SourceIndex,
+): (focus: string) => Promise<RepositoryContext> {
   const files = scan.files.flatMap(({ path, result }) => (result.shareable ? [path] : []));
-  return () => {
+  return (focus) => {
+    const base = { files, sources: sources.files, focus };
     const document = editors.current?.document;
     if (!document || vscode.workspace.getWorkspaceFolder(document.uri)?.uri.toString() !== scan.folder.uri.toString()) {
-      return Promise.resolve({ files });
+      return Promise.resolve(base);
     }
     const path = vscode.workspace.asRelativePath(document.uri, false);
     const content = document.getText();
     const decision = scan.policy(path, Buffer.byteLength(content));
-    return Promise.resolve(decision.shareable ? { files, openFile: { path, content } } : { files });
+    return Promise.resolve(decision.shareable ? { ...base, openFile: { path, content } } : base);
   };
 }
 
