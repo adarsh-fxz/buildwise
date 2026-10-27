@@ -46,6 +46,27 @@ describe('createCompatibleMentor', () => {
     expect(params.messages[1]?.content).toContain('Only the first 10 of 100 characters');
   });
 
+  it('drops reasoning effort for the session when the model rejects it', async () => {
+    const rejected = Object.assign(new Error('400 `reasoning_effort` is not supported with this model'), { status: 400 });
+    const { client, create } = fakeClient();
+    create.mockRejectedValueOnce(rejected).mockResolvedValueOnce(reply('first')).mockResolvedValueOnce(reply('second'));
+    const mentor = createCompatibleMentor(client, { model: 'llama', reasoningEffort: 'high' });
+    await expect(mentor.answer(session, 'Why?', context)).resolves.toBe('first');
+    await expect(mentor.answer(session, 'Why?', context)).resolves.toBe('second');
+    const params = create.mock.calls.map(([p]) => p as OpenAI.ChatCompletionCreateParamsNonStreaming);
+    expect(params[0]?.reasoning_effort).toBe('high');
+    expect(params[1]).not.toHaveProperty('reasoning_effort');
+    expect(params[2]).not.toHaveProperty('reasoning_effort');
+  });
+
+  it('passes other errors through', async () => {
+    const { client, create } = fakeClient();
+    create.mockRejectedValueOnce(Object.assign(new Error('429 rate limited'), { status: 429 }));
+    const mentor = createCompatibleMentor(client, { model: 'm', reasoningEffort: 'low' });
+    await expect(mentor.answer(session, 'Why?', context)).rejects.toThrow('429');
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it('reads a plan wrapped in a code fence', async () => {
     const { client } = fakeClient(reply(`Here you go:\n\`\`\`json\n${JSON.stringify(PLAN)}\n\`\`\``));
     await expect(createCompatibleMentor(client, { model: 'm' }).plan('goal', context)).resolves.toEqual(PLAN.checkpoints);

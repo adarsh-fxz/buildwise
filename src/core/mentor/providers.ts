@@ -105,6 +105,9 @@ export const PROVIDERS: readonly Provider[] = [
 export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'] as const;
 export type ReasoningEffortSetting = 'auto' | (typeof REASONING_EFFORTS)[number];
 
+/** What the panel offers. Every provider accepts these; the setting also takes none and minimal. */
+export const EFFORT_CHOICES = ['auto', 'low', 'medium', 'high'] as const;
+
 /**
  * The reasoning_effort to send: the learner's choice, or the provider's
  * preset for "auto". Undefined means send nothing. Claude sets effort per
@@ -117,6 +120,12 @@ export function resolveReasoningEffort(
   if (provider.id === 'anthropic') return undefined;
   const chosen = REASONING_EFFORTS.find((effort) => effort === setting);
   return chosen ?? provider.reasoningEffort;
+}
+
+/** Claude's effort for the setting: undefined for auto, and low for none or minimal, which Claude lacks. */
+export function resolveClaudeEffort(setting: string | undefined): 'low' | 'medium' | 'high' | undefined {
+  if (setting === 'none' || setting === 'minimal') return 'low';
+  return setting === 'low' || setting === 'medium' || setting === 'high' ? setting : undefined;
 }
 
 export function findProvider(id: string): Provider | undefined {

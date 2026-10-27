@@ -45,6 +45,15 @@ describe('createClaudeMentor', () => {
     expect(task?.text).toContain('level 1 hint');
   });
 
+  it('uses the chosen effort for every request', async () => {
+    const { client, create, parse } = fakeClient({ ...textResponse('ok'), parsed_output: { checkpoints: [] } });
+    const mentor = createClaudeMentor(client, DEFAULT_MODEL, 'high');
+    await mentor.hint(session, 1, [], context);
+    await mentor.plan('Add pagination', context);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ output_config: { effort: 'high' } }));
+    expect((parse.mock.calls[0]?.[0] as { output_config: { effort: string } }).output_config.effort).toBe('high');
+  });
+
   it('uses the configured model', async () => {
     const { client, create } = fakeClient(textResponse('ok'));
     await createClaudeMentor(client, 'claude-sonnet-5-5').answer(session, 'Why?', context);

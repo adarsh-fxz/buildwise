@@ -44,16 +44,29 @@ export function createCompatibleMentor(
   client: OpenAI,
   { model, limits = DEFAULT_LIMITS, maxOutputTokens, reasoningEffort }: CompatibleOptions,
 ): Mentor {
-  const complete = async (task: string, context: RepositoryContext) => {
-    const response = await client.chat.completions.create({
+  // Dropped for the rest of the session once the model rejects it, rather than failing every request.
+  let effort = reasoningEffort;
+  const create = async (messages: OpenAI.ChatCompletionMessageParam[]) => {
+    const params = {
       model,
       ...(maxOutputTokens !== undefined && { max_completion_tokens: maxOutputTokens }),
-      ...(reasoningEffort && { reasoning_effort: reasoningEffort }),
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `${renderRepository(context, limits)}\n\n${task}` },
-      ],
-    });
+      messages,
+    };
+    if (!effort) return client.chat.completions.create(params);
+    try {
+      return await client.chat.completions.create({ ...params, reasoning_effort: effort });
+    } catch (error) {
+      if (!isEffortRejected(error)) throw error;
+      effort = undefined;
+      return client.chat.completions.create(params);
+    }
+  };
+
+  const complete = async (task: string, context: RepositoryContext) => {
+    const response = await create([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `${renderRepository(context, limits)}\n\n${task}` },
+    ]);
     const choice = response.choices[0];
     if (choice?.finish_reason === 'content_filter') throw new MentorError('refused');
     if (choice?.finish_reason === 'length') throw new MentorError('truncated');
@@ -85,6 +98,15 @@ export function createCompatibleMentor(
     challenge: (session, context) => complete(challengePrompt(session), context),
     explain: (session, report, context) => complete(explainPrompt(session, report), context),
   };
+}
+
+/** A 400 that names reasoning, as models without thinking return for reasoning_effort. */
+function isEffortRejected(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error as { status?: unknown }).status === 400 &&
+    /reasoning/i.test(error.message)
+  );
 }
 
 /** The checkpoints in a reply, tolerating code fences or text around the JSON. */

@@ -31,6 +31,19 @@ export function instrument(mentor: Mentor, log: (line: string) => void, now: () 
   };
 }
 
+/** A mentor that forwards to whichever one `current` returns, so the model can change mid-session. */
+export function switchable(current: () => Mentor): Mentor {
+  return {
+    plan: (...args) => current().plan(...args),
+    hint: (...args) => current().hint(...args),
+    solution: (...args) => current().solution(...args),
+    answer: (...args) => current().answer(...args),
+    challenge: (...args) => current().challenge(...args),
+    explain: (...args) => current().explain(...args),
+    review: (...args) => current().review(...args),
+  };
+}
+
 export function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }

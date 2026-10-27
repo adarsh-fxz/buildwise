@@ -50,10 +50,11 @@ export const PlanSchema = z.object({
 
 export const ReviewSchema = z.object({ passes: z.boolean(), feedback: z.string() });
 
-type Effort = 'low' | 'medium';
+export type ClaudeEffort = 'low' | 'medium' | 'high';
 
-export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MODEL): Mentor {
-  const request = (task: string, context: RepositoryContext, effort: Effort) =>
+/** `effort`, when set, replaces the per-request defaults: low for hints and answers, medium for plans and reviews. */
+export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MODEL, effort?: ClaudeEffort): Mentor {
+  const request = (task: string, context: RepositoryContext, preset: ClaudeEffort) =>
     ({
       model,
       max_tokens: 16000,
@@ -61,7 +62,7 @@ export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MO
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       system: SYSTEM_PROMPT,
-      output_config: { effort },
+      output_config: { effort: effort ?? preset },
       messages: [
         {
           role: 'user',
@@ -74,8 +75,8 @@ export function createClaudeMentor(client: Anthropic, model: string = DEFAULT_MO
       ],
     }) satisfies Anthropic.Beta.MessageCreateParamsNonStreaming;
 
-  const text = async (task: string, context: RepositoryContext, effort: Effort) => {
-    const response = await client.beta.messages.create(request(task, context, effort));
+  const text = async (task: string, context: RepositoryContext, preset: ClaudeEffort) => {
+    const response = await client.beta.messages.create(request(task, context, preset));
     checkStop(response.stop_reason);
     const output = response.content
       .flatMap((block) => (block.type === 'text' ? [block.text] : []))

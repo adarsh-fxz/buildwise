@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSession } from '../session/session';
 import { MentorError } from './errors';
-import { instrument, seconds } from './instrument';
+import { instrument, seconds, switchable } from './instrument';
 import type { Mentor } from './mentor';
 
 const context = { files: [], openFile: { path: 'src/secret-sauce.ts', content: 'const apiKey = "sk-live";' } };
@@ -35,6 +35,18 @@ describe('instrument', () => {
     const logged = log.mock.calls.flat().join('\n');
     expect(logged).not.toContain('pagination');
     expect(logged).not.toContain('sk-live');
+  });
+});
+
+describe('switchable', () => {
+  it('sends each request to the mentor current at the time', async () => {
+    const first = { answer: vi.fn().mockResolvedValue('from the first') } as unknown as Mentor;
+    const second = { answer: vi.fn().mockResolvedValue('from the second') } as unknown as Mentor;
+    let current = first;
+    const mentor = switchable(() => current);
+    await expect(mentor.answer(createSession('g'), 'Why?', context)).resolves.toBe('from the first');
+    current = second;
+    await expect(mentor.answer(createSession('g'), 'Why?', context)).resolves.toBe('from the second');
   });
 });
 

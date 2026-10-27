@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatModels, findProvider, PROVIDERS, resolveReasoningEffort } from './providers';
+import { chatModels, findProvider, PROVIDERS, resolveClaudeEffort, resolveReasoningEffort } from './providers';
 
 const provider = (id: string) => {
   const found = findProvider(id);
@@ -35,6 +35,16 @@ describe('resolveReasoningEffort', () => {
   it('ignores unknown values and never applies to Claude', () => {
     expect(resolveReasoningEffort(provider('groq'), 'turbo')).toBeUndefined();
     expect(resolveReasoningEffort(provider('anthropic'), 'high')).toBeUndefined();
+  });
+});
+
+describe('resolveClaudeEffort', () => {
+  it('keeps the per-request defaults for auto and maps what Claude lacks to low', () => {
+    expect(resolveClaudeEffort('auto')).toBeUndefined();
+    expect(resolveClaudeEffort(undefined)).toBeUndefined();
+    expect(resolveClaudeEffort('high')).toBe('high');
+    expect(resolveClaudeEffort('none')).toBe('low');
+    expect(resolveClaudeEffort('minimal')).toBe('low');
   });
 });
 

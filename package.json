@@ -141,7 +141,7 @@
             "high"
           ],
           "enumDescriptions": [
-            "BuildWise chooses: low for Gemini, the provider's default elsewhere.",
+            "BuildWise chooses: low for Gemini, low for Claude hints and medium for its plans, the provider's default elsewhere.",
             "No thinking. Not accepted by every model; Gemini 3 models can't turn thinking off.",
             "The least thinking the model allows.",
             "Brief thinking: quick hints.",
@@ -149,7 +149,7 @@
             "The most thinking: slowest. Free tiers may time out."
           ],
           "default": "auto",
-          "markdownDescription": "How long a thinking model may think before answering. Applies to Gemini, Groq, OpenRouter, Ollama and other OpenAI-compatible providers; not every model accepts every value. Claude ignores this: BuildWise sets its effort per request.",
+          "markdownDescription": "How long a thinking model may think before answering. Also set from the effort menu under the BuildWise input box. If a model rejects the value, BuildWise retries without it for the rest of the session. Claude has no `none` or `minimal`, so it uses `low` for those.",
           "scope": "application"
         },
         "buildwise.context.exclude": {

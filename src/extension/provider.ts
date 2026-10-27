@@ -5,7 +5,7 @@ import { createCompatibleMentor } from '../core/mentor/compatible';
 import { describeError } from '../core/mentor/errors';
 import { seconds } from '../core/mentor/instrument';
 import { createClaudeMentor, type Mentor } from '../core/mentor/mentor';
-import { chatModels, findProvider, type Provider, PROVIDERS, resolveReasoningEffort } from '../core/mentor/providers';
+import { chatModels, findProvider, type Provider, PROVIDERS, resolveClaudeEffort, resolveReasoningEffort } from '../core/mentor/providers';
 
 // Keys live in VS Code's SecretStorage (the OS keychain), one per provider.
 const secretKey = (provider: Provider) => `buildwise.apiKey.${provider.id}`;
@@ -81,7 +81,8 @@ const MAX_RETRIES = 1;
 function createMentor({ provider, model, baseURL, apiKey }: Configured): Mentor {
   const timeout = provider.timeoutMs;
   if (provider.id === 'anthropic') {
-    return createClaudeMentor(new Anthropic({ apiKey, timeout, maxRetries: MAX_RETRIES }), model);
+    const effort = resolveClaudeEffort(vscode.workspace.getConfiguration('buildwise').get<string>('reasoningEffort'));
+    return createClaudeMentor(new Anthropic({ apiKey, timeout, maxRetries: MAX_RETRIES }), model, effort);
   }
   const client = new OpenAI({ apiKey: apiKey ?? 'not-needed', baseURL, timeout, maxRetries: MAX_RETRIES });
   const effort = reasoningEffort(provider);
