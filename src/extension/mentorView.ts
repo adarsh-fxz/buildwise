@@ -86,6 +86,9 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
       case 'setup':
         await setupProvider(this.secrets);
         return;
+      case 'savePilotReport':
+        void vscode.commands.executeCommand('buildwise.savePilotReport');
+        return;
       case 'openFolder':
         await vscode.commands.executeCommand('vscode.openFolder');
         return;

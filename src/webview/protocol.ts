@@ -37,4 +37,5 @@ export type FromWebview =
   | { readonly type: 'setup' }
   | { readonly type: 'openFolder' }
   | { readonly type: 'openFile'; readonly file: string; readonly line?: number; readonly column?: number }
-  | { readonly type: 'copy'; readonly text: string };
+  | { readonly type: 'copy'; readonly text: string }
+  | { readonly type: 'savePilotReport' };

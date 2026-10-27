@@ -187,6 +187,10 @@ function progressView(progress: Progress): HTMLElement {
         ]);
       }),
     ),
+    el('p', { className: 'muted small' }, [
+      document.createTextNode('Taking part in the pilot? '),
+      button('Save an anonymous report', send({ type: 'savePilotReport' }), { style: 'link' }),
+    ]),
   );
   return el('section', { className: 'stack progress-section' }, children);
 }

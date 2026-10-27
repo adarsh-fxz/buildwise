@@ -87,6 +87,8 @@ Nothing is sent anywhere until you start a session. During a session, BuildWise 
 
 BuildWise keeps a learning log of finished sessions on your machine (the goal, steps passed, hints and questions used, and how long it took) to show your progress on the start screen. It is never uploaded. **BuildWise: Clear Learning Log** deletes it.
 
+If you take part in the pilot, **BuildWise: Save Pilot Report** saves an anonymous JSON file for you to send. It holds counts only: steps, hints, questions, session length and the days between sessions, with a random id so your reports can be linked. It never includes goals, code, file names or model output, and BuildWise never sends it for you.
+
 BuildWise only ever considers files in the open workspace, and filters them before anything can reach a model provider. It never shares:
 
 - `.env` files (templates such as `.env.example` are allowed)

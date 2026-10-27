@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { resetCheckPermissions } from './checks';
 import { LearningLog } from './learningLog';
 import { MentorViewProvider } from './mentorView';
+import { savePilotReport } from './pilotReport';
 import { removeApiKeys, setupProvider, testConnection } from './provider';
 import { showSharedContext } from './sharedContext';
 
@@ -39,6 +40,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('buildwise.clearLearningLog', async () => {
       if (await learningLog.clear()) mentorView.refresh();
     }),
+    vscode.commands.registerCommand('buildwise.savePilotReport', () =>
+      savePilotReport(learningLog, context.globalState, (context.extension.packageJSON as { version: string }).version),
+    ),
   );
 
   if (!context.globalState.get<boolean>(WELCOMED_KEY)) {

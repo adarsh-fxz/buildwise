@@ -86,6 +86,11 @@
         "command": "buildwise.clearLearningLog",
         "title": "Clear Learning Log",
         "category": "BuildWise"
+      },
+      {
+        "command": "buildwise.savePilotReport",
+        "title": "Save Pilot Report",
+        "category": "BuildWise"
       }
     ],
     "configuration": {
