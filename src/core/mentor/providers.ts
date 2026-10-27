@@ -52,7 +52,7 @@ export const PROVIDERS: readonly Provider[] = [
     keyUrl: 'https://console.groq.com/keys',
     needsKey: true,
     // The free tier allows about 8,000 tokens a minute, input and output together.
-    limits: { maxFiles: 80, maxOpenFileChars: 6000 },
+    limits: { maxFiles: 80, maxOpenFileChars: 6000, maxRelatedChars: 5000 },
     maxOutputTokens: 3000,
     timeoutMs: CLOUD_TIMEOUT_MS,
     isChatModel: (id) => !/(whisper|tts|orpheus|guard|compound)/.test(id),
@@ -76,7 +76,7 @@ export const PROVIDERS: readonly Provider[] = [
     baseURL: 'http://localhost:11434/v1',
     needsKey: false,
     // Local models often run with a small context window.
-    limits: { maxFiles: 100, maxOpenFileChars: 8000 },
+    limits: { maxFiles: 100, maxOpenFileChars: 8000, maxRelatedChars: 8000 },
     // Models running on a laptop CPU can take minutes.
     timeoutMs: 5 * 60_000,
     isChatModel: (id) => !/embed/.test(id),

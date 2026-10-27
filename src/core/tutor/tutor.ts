@@ -80,7 +80,8 @@ export class Tutor {
 
   constructor(
     private readonly mentor: Mentor,
-    private readonly context: () => Promise<RepositoryContext>,
+    /** Called with the goal and current step, so related files can be found. */
+    private readonly context: (focus: string) => Promise<RepositoryContext>,
     private readonly onChange: (state: TutorState) => void = () => undefined,
   ) {}
 
@@ -103,7 +104,7 @@ export class Tutor {
     this.challengeTask = undefined;
 
     await this.run('thinking', async () => {
-      const plan = await this.mentor.plan(session.goal, await this.context());
+      const plan = await this.mentor.plan(session.goal, await this.context(session.goal));
       const result = transition(session, { type: 'plan-ready', checkpoints: plan });
       if (!result.ok) {
         this.notice(REJECTION_MESSAGES[result.reason]);
@@ -203,7 +204,7 @@ export class Tutor {
       if (next.phase === 'independent-check') {
         this.activity = 'thinking';
         this.emit();
-        const task = await this.mentor.challenge(next, await this.context());
+        const task = await this.mentor.challenge(next, await this.contextFor(next));
         this.commitPass(next);
         this.challengeTask = task;
         this.notice(`Checkpoint ${String(passed + 1)} passes, checked with ${scope}.${praise} That was the last one.${notes}`, 'success');
@@ -236,7 +237,7 @@ export class Tutor {
     this.activity = 'thinking';
     this.emit();
     const level = activeCheckpoint(result.session)?.hintsUsed ?? 0;
-    const text = await this.mentor.hint(result.session, level, [...this.hintsForCheckpoint], await this.context(), failure);
+    const text = await this.mentor.hint(result.session, level, [...this.hintsForCheckpoint], await this.contextFor(result.session), failure);
     this.session = result.session;
     this.hintsForCheckpoint.push(text);
     this.add({ from: 'mentor', kind: 'hint', text, label: `Hint ${String(level)} of ${String(HINT_LEVELS)}` });
@@ -251,7 +252,14 @@ export class Tutor {
       session.phase === 'independent-check'
         ? (this.challengeTask ?? 'The independent check task.')
         : `${current?.title ?? ''}: ${current?.description ?? ''}`;
-    return this.mentor.review(session, task, report.files, await this.context());
+    return this.mentor.review(session, task, report.files, await this.contextFor(session));
+  }
+
+  private contextFor(session: Session): Promise<RepositoryContext> {
+    const current = activeCheckpoint(session);
+    const step =
+      session.phase === 'independent-check' ? this.challengeTask : current && `${current.title}: ${current.description}`;
+    return this.context([session.goal, step].filter(Boolean).join('\n'));
   }
 
   end(): void {
@@ -291,7 +299,7 @@ export class Tutor {
       return;
     }
     await this.run('thinking', async () => {
-      const commit = await work(result.session, await this.context());
+      const commit = await work(result.session, await this.contextFor(result.session));
       this.session = result.session;
       commit();
     });

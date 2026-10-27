@@ -1,20 +1,27 @@
 import { formatProblem } from '../checks/output';
 import type { CheckReport, SharedFile } from '../checks/report';
+import { selectRelated, type SourceFile } from '../context/relevance';
 import type { Session } from '../session/session';
 
 /** What the mentor may see of the repository. Every path has passed the shareability policy. */
 export interface RepositoryContext {
   readonly files: readonly string[];
   readonly openFile?: { readonly path: string; readonly content: string } | undefined;
+  /** Source files to pick related ones from, by matching them against `focus`. */
+  readonly sources?: readonly SourceFile[];
+  /** The goal and current step. */
+  readonly focus?: string;
 }
 
 /** How much of the repository fits in one request. Small free tiers need less. */
 export interface ContextLimits {
   readonly maxFiles: number;
   readonly maxOpenFileChars: number;
+  /** For source files related to the current step, besides the open file. */
+  readonly maxRelatedChars: number;
 }
 
-export const DEFAULT_LIMITS: ContextLimits = { maxFiles: 300, maxOpenFileChars: 256 * 1024 };
+export const DEFAULT_LIMITS: ContextLimits = { maxFiles: 300, maxOpenFileChars: 256 * 1024, maxRelatedChars: 40_000 };
 
 export const SYSTEM_PROMPT = `You are BuildWise, a senior engineer mentoring a developer while they build a feature in their own codebase. Success means they can do this kind of work without you.
 
@@ -30,7 +37,7 @@ export const HINT_INSTRUCTIONS: Readonly<Record<number, string>> = {
   3: 'Show a code skeleton for this checkpoint, at most six lines in a code block, with the key part replaced by ___ for the learner to fill in. Then say in one sentence what belongs in the blank.',
 };
 
-export function renderRepository({ files, openFile }: RepositoryContext, limits = DEFAULT_LIMITS): string {
+export function renderRepository({ files, openFile, sources, focus }: RepositoryContext, limits = DEFAULT_LIMITS): string {
   const listed = files.slice(0, limits.maxFiles);
   const lines = ['<repository>', 'Files in the workspace:', ...listed];
   if (files.length > listed.length) {
@@ -42,6 +49,13 @@ export function renderRepository({ files, openFile }: RepositoryContext, limits 
     lines.push('', 'The learner has this file open:', `<file path="${openFile.path}">`, defuse(shown), '</file>');
     if (shown.length < content.length) {
       lines.push(`(Only the first ${String(shown.length)} of ${String(content.length)} characters of this file are shown.)`);
+    }
+  }
+  const related = sources ? selectRelated(focus ?? '', sources, { maxChars: limits.maxRelatedChars, exclude: openFile?.path }) : [];
+  if (related.length) {
+    lines.push('', 'Other source files the current step may involve. Excerpts show only the lines near matching words:');
+    for (const file of related) {
+      lines.push(`<file path="${file.path}"${file.partial ? ' excerpt="true"' : ''}>`, defuse(file.content), '</file>');
     }
   }
   lines.push('</repository>');

@@ -178,6 +178,19 @@ describe('Tutor', () => {
   });
 });
 
+describe('context', () => {
+  it('asks for context about the goal, then the current step', async () => {
+    const context = vi.fn<(focus: string) => Promise<{ files: string[] }>>().mockResolvedValue({ files: [] });
+    const tutor = new Tutor(fakeMentor(), context);
+    await tutor.start('Add pagination');
+    await tutor.hint();
+    expect(context.mock.calls.map(([focus]) => focus)).toEqual([
+      'Add pagination',
+      'Add pagination\nRead the page param: From the URL.',
+    ]);
+  });
+});
+
 describe('checks', () => {
   it('shows a checking activity while the tools run', async () => {
     const tutor = await startedTutor();

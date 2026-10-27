@@ -35,7 +35,7 @@ describe('createCompatibleMentor', () => {
     const { client, create } = fakeClient(reply('ok'));
     const mentor = createCompatibleMentor(client, {
       model: 'm',
-      limits: { maxFiles: 10, maxOpenFileChars: 10 },
+      limits: { maxFiles: 10, maxOpenFileChars: 10, maxRelatedChars: 0 },
       maxOutputTokens: 3000,
       reasoningEffort: 'low',
     });
