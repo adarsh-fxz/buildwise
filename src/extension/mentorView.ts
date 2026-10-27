@@ -7,7 +7,7 @@ import type { FromWebview, ToWebview, ViewState } from '../webview/protocol';
 import { describeConfigured, loadMentor, setupProvider } from './provider';
 import { runChecks } from './checks';
 import type { LearningLog } from './learningLog';
-import { ChangeTracker, EditorTracker, readSavedFiles, repositoryContext } from './editorContext';
+import { ChangeTracker, EditorTracker, readSavedFiles, repositoryContext, saveEdits } from './editorContext';
 import { SourceIndex } from './sourceIndex';
 import { type FolderScan, scanFolder } from './workspaceFiles';
 import { isWorkspaceRelative } from '../webview/fileRef';
@@ -174,6 +174,8 @@ export class MentorViewProvider implements vscode.WebviewViewProvider, vscode.Di
     const { tutor, folder, scan, changes } = this.active;
     await tutor.check(async () => {
       const started = Date.now();
+      const saved = await saveEdits(folder);
+      if (saved) this.log(`Saved ${String(saved)} edited ${saved === 1 ? 'file' : 'files'} before checking.`);
       const files = await readSavedFiles(changes, scan);
       const report = await runChecks(folder, changes, this.workspaceState, files);
       this.log(`check: ${report.scope}, ${String(report.evidence.errors)} errors, tests ${report.evidence.tests}, in ${seconds(Date.now() - started)}`);

@@ -350,7 +350,7 @@ function describeProblems(report: CheckReport): string {
 
 export function describeEvidence(evidence: ToolEvidence | CheckEvidence): string {
   const { errors, tests, changedFiles } = evidence;
-  if (changedFiles === 0) return 'no files saved in this session yet';
+  if (changedFiles === 0) return 'no files changed in this session yet';
   if (errors === 0 && tests !== 'failed' && 'review' in evidence && evidence.review === 'failed') {
     return 'the code does not do what this step asks yet';
   }

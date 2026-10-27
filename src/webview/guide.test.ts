@@ -19,8 +19,8 @@ const base: ViewState = {
 
 describe('nextStep', () => {
   it('tells a beginner how to start a step', () => {
-    expect(nextStep(base, 'Ctrl+S')).toBe(
-      'Write the code for this step in your editor. Save with Ctrl+S, then check your work. Stuck? Ask for a hint.',
+    expect(nextStep(base)).toBe(
+      'Write the code for this step in your editor, then check your work. Stuck? Ask for a hint.',
     );
   });
 
@@ -38,8 +38,8 @@ describe('nextStep', () => {
         },
       ],
     };
-    expect(nextStep(failed, 'Ctrl+S')).toContain('Fix the first error');
-    expect(nextStep(failed, 'Ctrl+S')).toContain('Explain the errors');
+    expect(nextStep(failed)).toContain('Fix the first error');
+    expect(nextStep(failed)).toContain('Explain the errors');
   });
 
   it('points at the review feedback when the code compiles but falls short', () => {
@@ -49,26 +49,26 @@ describe('nextStep', () => {
       revealUnlocked: true,
       transcript: [{ from: 'buildwise', kind: 'check', text: 'Not passing yet', tone: 'error', problems: [] }],
     };
-    expect(nextStep(reviewed, 'Ctrl+S')).toBe(
-      'Read what is still missing above, change your code, save, and check again. You have used every hint, so you can also reveal the solution.',
+    expect(nextStep(reviewed)).toBe(
+      'Read what is still missing above, change your code and check again. You have used every hint, so you can also reveal the solution.',
     );
   });
 
   it('mentions the reveal once every hint is used', () => {
-    expect(nextStep({ ...base, hintsUsed: 3, revealUnlocked: true }, 'Ctrl+S')).toContain('reveal the solution');
+    expect(nextStep({ ...base, hintsUsed: 3, revealUnlocked: true })).toContain('reveal the solution');
   });
 
   it('follows up on a hint', () => {
-    expect(nextStep({ ...base, hintsUsed: 1 }, '⌘S')).toBe('Try the hint in your code. Save with ⌘S, then check your work.');
+    expect(nextStep({ ...base, hintsUsed: 1 })).toBe('Try the hint in your code, then check your work.');
   });
 
   it('says help is off for the independent check', () => {
-    expect(nextStep({ ...base, phase: 'independent-check' }, 'Ctrl+S')).toContain('hints and questions are off');
+    expect(nextStep({ ...base, phase: 'independent-check' })).toContain('hints and questions are off');
   });
 
   it('stays quiet while busy or before a session', () => {
-    expect(nextStep({ ...base, activity: 'thinking' }, 'Ctrl+S')).toBeUndefined();
-    expect(nextStep({ ...base, phase: 'idle' }, 'Ctrl+S')).toBeUndefined();
+    expect(nextStep({ ...base, activity: 'thinking' })).toBeUndefined();
+    expect(nextStep({ ...base, phase: 'idle' })).toBeUndefined();
   });
 });
 

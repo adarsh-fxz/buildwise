@@ -4,7 +4,7 @@ import type { ViewState } from './protocol';
  * One sentence telling a beginner what to do now. Undefined while BuildWise
  * is busy, since the status line covers that.
  */
-export function nextStep(state: ViewState, saveKeys: string): string | undefined {
+export function nextStep(state: ViewState): string | undefined {
   if (state.activity) return undefined;
   const last = state.transcript.at(-1);
 
@@ -15,13 +15,13 @@ export function nextStep(state: ViewState, saveKeys: string): string | undefined
     case 'complete':
       return 'Session finished. Read your summary, then start a new session when you are ready.';
     case 'independent-check':
-      return `Build this one on your own: hints and questions are off. Save with ${saveKeys}, then check your work.`;
+      return 'Build this one on your own: hints and questions are off. Check your work when it is done.';
     case 'building':
       if (last?.kind === 'check' && last.tone === 'error') {
         const hasErrors = Boolean(last.problems?.length);
         const fix = hasErrors
-          ? 'Fix the first error in the list, save, and check again.'
-          : 'Read what is still missing above, change your code, save, and check again.';
+          ? 'Fix the first error in the list and check again.'
+          : 'Read what is still missing above, change your code and check again.';
         if (state.revealUnlocked) return `${fix} You have used every hint, so you can also reveal the solution.`;
         return hasErrors && state.canExplain ? `${fix} Not sure what it means? Explain the errors.` : fix;
       }
@@ -29,8 +29,8 @@ export function nextStep(state: ViewState, saveKeys: string): string | undefined
         return 'You have used every hint. Keep trying, or reveal the solution and type it out yourself.';
       }
       if (state.hintsUsed > 0) {
-        return `Try the hint in your code. Save with ${saveKeys}, then check your work.`;
+        return 'Try the hint in your code, then check your work.';
       }
-      return `Write the code for this step in your editor. Save with ${saveKeys}, then check your work. Stuck? Ask for a hint.`;
+      return 'Write the code for this step in your editor, then check your work. Stuck? Ask for a hint.';
   }
 }

@@ -11,7 +11,6 @@ type Entry = ViewState['transcript'][number];
 const vscode = acquireVsCodeApi();
 const root = document.getElementById('root') as HTMLElement;
 
-const SAVE_KEYS = navigator.userAgent.includes('Mac') ? '⌘S' : 'Ctrl+S';
 const START_KEYS = navigator.userAgent.includes('Mac') ? '⌘Enter' : 'Ctrl+Enter';
 const MAX_LISTED_PROBLEMS = 5;
 const EXAMPLE_GOALS = [
@@ -63,7 +62,7 @@ function render(state: ViewState): void {
   trackWait(state);
   const passed = new Set(state.checkpoints.flatMap((c, i) => (c.status === 'passed' ? [i] : [])));
   const progress = progressPercent(state);
-  const tip = nextStep(state, SAVE_KEYS);
+  const tip = nextStep(state);
   changes = shown
     ? {
         // A shorter transcript means a new session: everything in it is new.
@@ -249,7 +248,7 @@ function gettingStarted(state: ViewState): Node[] {
 // During a session -----------------------------------------------------------
 
 function sessionView(state: ViewState): Node[] {
-  const tip = nextStep(state, SAVE_KEYS);
+  const tip = nextStep(state);
   return [
     sessionHeader(state),
     stepper(state),

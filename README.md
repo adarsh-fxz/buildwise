@@ -106,7 +106,7 @@ BuildWise only ever considers files in the open workspace, and filters them befo
 
 Run **BuildWise: Show Shared Context** from the command palette to see which files are shareable and why each excluded file was excluded.
 
-BuildWise is read-only: it never edits your files. It runs only the check commands you approve, never in an untrusted workspace, and run **BuildWise: Ask Again Before Running Checks** to withdraw approval. Text from the repository and tool output are treated as untrusted input to the model.
+BuildWise never changes your code. **Check my work** saves the files you have edited in the project first, as <kbd>Ctrl</kbd>+<kbd>S</kbd> would, so the check sees what you see. It runs only the check commands you approve, never in an untrusted workspace, and run **BuildWise: Ask Again Before Running Checks** to withdraw approval. Text from the repository and tool output are treated as untrusted input to the model.
 
 ## Roadmap
 

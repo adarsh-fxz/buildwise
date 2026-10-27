@@ -357,7 +357,7 @@ describe('describeEvidence', () => {
   it('reads naturally', () => {
     expect(describeEvidence({ errors: 1, tests: 'not-run', changedFiles: 2 })).toBe('1 error');
     expect(describeEvidence({ errors: 0, tests: 'failed', changedFiles: 1 })).toBe('0 errors, tests failed');
-    expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 0 })).toBe('no files saved in this session yet');
+    expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 0 })).toBe('no files changed in this session yet');
     expect(describeEvidence({ errors: 0, tests: 'passed', changedFiles: 1, review: 'failed' })).toBe(
       'the code does not do what this step asks yet',
     );

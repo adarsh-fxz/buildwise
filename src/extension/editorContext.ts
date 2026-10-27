@@ -72,6 +72,22 @@ export class ChangeTracker implements vscode.Disposable {
 }
 
 /**
+ * Saves the learner's unsaved edits in the folder, so a check sees the code
+ * they see without pressing Ctrl+S, even when auto save would fire too late.
+ * Returns how many files were saved.
+ */
+export async function saveEdits(folder: vscode.WorkspaceFolder): Promise<number> {
+  const dirty = vscode.workspace.textDocuments.filter(
+    (document) =>
+      document.isDirty &&
+      !document.isUntitled &&
+      vscode.workspace.getWorkspaceFolder(document.uri)?.uri.toString() === folder.uri.toString(),
+  );
+  const saved = await Promise.all(dirty.map((document) => document.save()));
+  return saved.filter(Boolean).length;
+}
+
+/**
  * Errors VS Code currently reports in the folder. Language servers usually
  * report on open files only, so the scope says how many files that covers.
  */
