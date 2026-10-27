@@ -52,9 +52,14 @@ None of this is proven yet. The pilot compares BuildWise directly against Claude
 
 ## Try it
 
-BuildWise only runs from source for now.
+BuildWise is not on the Marketplace yet. Install it from a `.vsix` file:
 
-1. Clone this repository, run `npm install`, open it in VS Code and press <kbd>F5</kbd>. A second window opens with **[Extension Development Host]** in its title. BuildWise runs only in that window.
+1. Clone this repository and run `npm install` then `npm run package`, which writes `buildwise-0.0.1.vsix`. Pilot users can skip this step and use the file they were sent.
+
+   Install it with `code --install-extension buildwise-0.0.1.vsix`, or in VS Code run **Extensions: Install from VSIX...** and pick the file.
+
+   To work on BuildWise itself, open the repository in VS Code and press <kbd>F5</kbd> instead. A second window opens with **[Extension Development Host]** in its title, running your local build.
+
 2. BuildWise opens in the side bar on the right, so it stays in view while you move between files. If it is hidden, click **BuildWise** in the status bar at the bottom of the window. The panel walks you through the rest:
    - **Choose an AI model:** pick a provider, paste its API key and choose a model. See [Models](#models) for free options.
    - **Open your project:** open the folder of a TypeScript project you want to work on.
@@ -110,7 +115,7 @@ BuildWise is read-only: it never edits your files. It runs only the check comman
 - [x] **Mentor loop:** Claude-backed planner and hints, chat panel
 - [x] **Feedback:** run the type checker and tests with consent, list errors, explain them without the fix
 - [x] **Independent check:** unassisted task, session recap, local learning log
-- [ ] **Pilot metrics (opt-in):** hints per checkpoint, checkpoint completion, return sessions
+- [x] **Pilot metrics (opt-in):** hints per checkpoint, checkpoint completion, return sessions
 - [ ] **Pilot:** 20 developers on their own repositories, compared with Claude Code's Learning mode
 - [ ] **Later:** voice, more languages, an instructor view for courses and bootcamps
 
